@@ -1,26 +1,67 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --color-brand-gold: #D4AF37;
+  --color-brand-beige: #F5F5DC;
+  --color-brand-dark: #1A1A1A;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* This tells Tailwind to use your loaded fonts for utility classes */
+  --font-serif: var(--font-playfair);
+  --font-sans: var(--font-dm-sans);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --shadow-navbar: 0px 4px 36px -15px rgba(0, 0, 0, 0.06);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* This ensures DM Sans is the base for everything */
+  font-family: var(--font-dm-sans), sans-serif;
+}
+
+@layer components {
+
+  /* horizontal padding */
+  .horizontal-padding {
+    @apply px-5 sm:px-8 md:px-18 lg:px-20 xl:px-30;
+  }
+  /* "QUESTIONS" / "INSIGHTS" - Small uppercase labels */
+  .heading-tag {
+    @apply font-sans font-semibold uppercase tracking-wider text-[#BF8F5F];
+    @apply text-[13px] md:text-[14px] xl:text-[16px];
+    @apply leading-[30px];
+  }
+
+  /* "Frequently Asked Questions" / "Latest Updates" - Large Serif titles */
+  .heading-main {
+    @apply font-serif font-normal text-[#222222];
+    @apply text-[24px] sm:text-[26px] md:text-[28px] lg:text-[32px] xl:text-[36px];
+    /* @apply xl:leading-[89px]; */
+  }
+
+  /* "Discover our handpicked selection..." - Small description under main heading */
+  .heading-des {
+    @apply font-sans font-normal text-[#222222] opacity-50;
+    @apply text-[14px] md:text-[15px] xl:text-[16px];
+    @apply leading-[24px];
+  }
+
+  /* "Are your products certified..." / "How to Choose..." - Bold card/list titles */
+  .title-main {
+    @apply font-sans font-bold text-black;
+    @apply text-[15px] md:text-[16px];
+    @apply leading-[30px];
+  }
+
+  /* "Yes, all of our products are crafted..." - Regular body text in cards */
+  .title-des {
+    @apply font-sans font-normal text-[#222222] opacity-50;
+    @apply text-[14px] md:text-[16px];
+    @apply leading-[30px];
+  }
+
+  /* "Explore More" - Bold links with specific leading */
+  .link-explore {
+    @apply font-sans font-bold text-black cursor-pointer hover:underline;
+    @apply text-[14px] md:text-[16px];
+    @apply leading-[24px];
+  }
 }
