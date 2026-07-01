@@ -44,17 +44,48 @@ body {
     @apply leading-[24px];
   }
 
+  /* product name */
+  .product-name {
+    @apply font-serif font-normal text-black;
+    @apply text-[32px] md:text-[52px] xl:text-[72px];
+    @apply leading-[80px];
+  }
+
+  .product-price {
+    @apply font-serif font-normal text-black;
+    @apply text-[22px] md:text-[32px] xl:text-[48px];
+    @apply leading-[56px];
+  }
+
+
   /* "Are your products certified..." / "How to Choose..." - Bold card/list titles */
   .title-main {
     @apply font-sans font-bold text-black;
     @apply text-[15px] md:text-[16px];
     @apply leading-[30px];
   }
+  /* Buy and cart buttons */
+  .buy-cart-btn {
+    @apply font-sans font-semibold ;
+    @apply text-[15px] md:text-[16px] lg:text-[21px];
+    @apply leading-[30px] tracking-[0.34em];
+  }
 
   /* "Yes, all of our products are crafted..." - Regular body text in cards */
   .title-des {
     @apply font-sans font-normal text-[#222222] opacity-50;
     @apply text-[14px] md:text-[16px];
+    @apply leading-[30px];
+  }
+
+  .subtitle-head {
+    @apply font-sans font-bold text-[#222222];
+    @apply text-[18px] sm:text-[20px] md:text-[22px] lg:text-[24px];
+    @apply leading-[30px];
+  }
+  .subtitle-des {
+    @apply font-sans font-normal text-[#222222] opacity-50;
+    @apply text-[14px] sm:text-[16px] md:text-[18px] lg:text-[20px];
     @apply leading-[30px];
   }
 

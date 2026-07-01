@@ -22,14 +22,14 @@ const ProductFilterSidebar = ({
         <aside className="w-full max-w-[280px] pr-8 space-y-10">
             {/* Categories Section */}
             <div>
-                <h3 className="text-[#222222] font-bold text-[24px] mb-6">Categories</h3>
+                <h3 className="subtitle-head mb-6">Categories</h3>
                 <ul className="space-y-4">
                     {categories.map((cat) => (
                         <li 
                             key={cat._id}
                             onClick={() => setActiveFilters({ ...activeFilters, category: cat._id })}
-                            className={`cursor-pointer text-sm transition-all flex items-center gap-2 
-                                ${activeFilters.category === cat._id ? 'text-[#B58E58] font-bold' : 'text-gray-500 hover:text-[#B58E58]'}`}
+                            className={`cursor-pointer subtitle-des transition-all flex items-center gap-2 
+                                ${activeFilters.category === cat._id ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}
                         >
                             {activeFilters.category === cat._id && <div className="w-1 h-4 bg-[#B58E58]" />}
                             {cat.name}
@@ -42,7 +42,7 @@ const ProductFilterSidebar = ({
 
             {/* Price Slider Section */}
             <div>
-                <h3 className="text-[#222222] font-bold text-lg mb-6">Price</h3>
+                <h3 className="subtitle-head mb-6">Price</h3>
                 <input 
                     type="range" 
                     min="0" 
@@ -52,14 +52,14 @@ const ProductFilterSidebar = ({
                     onChange={(e) => setActiveFilters({ ...activeFilters, maxPrice: e.target.value })}
                     className="w-full accent-[#B58E58] h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 />
-                <div className="flex justify-between mt-4 text-xs font-medium text-gray-500">
+                <div className="flex justify-between mt-4 text-sm font-normal text-gray-500">
                     <span>Price: $0 - ${activeFilters.maxPrice || 5000}</span>
                 </div>
             </div>
 
             {/* Material / Metal Section */}
             <div>
-                <h3 className="text-[#222222] font-bold text-lg mb-6">Material</h3>
+                <h3 className="subtitle-head mb-6">Material</h3>
                 <div className="space-y-3">
                     {['Gold', 'Silver', 'Platinum'].map((metal) => (
                         <label key={metal} className="flex items-center gap-3 cursor-pointer group">
@@ -78,7 +78,7 @@ const ProductFilterSidebar = ({
 
             {/* Size Grid Section */}
             <div>
-                <h3 className="text-[#222222] font-bold text-lg mb-6">Size</h3>
+                <h3 className="subtitle-head mb-6">Size</h3>
                 <div className="grid grid-cols-3 gap-2">
                     {['XS', 'S', 'M', 'L', 'XL', '2XL'].map((size) => (
                         <button
