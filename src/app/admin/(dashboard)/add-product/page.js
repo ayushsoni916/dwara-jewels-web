@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, ChevronDown, ImageIcon, Loader2, Plus, Upload, X } from 'lucide-react'; // For icons
+import { AlertCircle, CheckCircle2, ChevronDown, ImageIcon, Loader2, Plus, Upload, X } from 'lucide-react'; 
 import imageCompression from 'browser-image-compression';
 import heic2any from "heic2any";
 import axios from 'axios';
@@ -13,12 +13,12 @@ const AddProduct = () => {
         description: '',
         category: '',
         subCategory: '',
-        collection: '',
+        collectionId: '', // Mapped to 'collection' in schema
         stock: 0,
         isNewArrival: false,
         isLuxe: false,
-        tags: '',
-        price: { basePrice: '', makingCharges: '', tax: '', finalPrice: '' },
+        tags: '', // Comma separated string in UI
+        price: { basePrice: '', makingCharges: '', tax: '', finalPrice: '', currency: 'USD' },
         metal: { type: 'Gold', quality: '', color: '', weight: '' },
         dimensions: { width: '', length: '', size: '' }
     });
@@ -131,29 +131,50 @@ const AddProduct = () => {
         setIsLoading(true);
         const formData = new FormData();
 
-        // Object spreading for simpler appending
-        Object.keys(productData).forEach(key => {
-            if (typeof productData[key] === 'object') {
-                formData.append(key, JSON.stringify(productData[key]));
-            } else {
-                formData.append(key, productData[key]);
-            }
-        });
+        // 1. Append Standard Text/Boolean Fields
+        formData.append('title', productData.title);
+        formData.append('sku', productData.sku);
+        formData.append('description', productData.description);
+        formData.append('category', productData.category);
+        formData.append('subCategory', productData.subCategory);
+        if (productData.collectionId) {
+            formData.append('collection', productData.collectionId); // Maps to schema 'collection'
+        }
+        formData.append('stock', productData.stock);
+        formData.append('isNewArrival', productData.isNewArrival);
+        formData.append('isLuxe', productData.isLuxe);
 
-        formData.append('stones', JSON.stringify(stones));
+        // 2. Format & Append Tags (UI String -> Backend Array)
+        const tagsArray = productData.tags.split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag.length > 0);
+        formData.append('tags', JSON.stringify(tagsArray));
+
+        // 3. Append Nested Objects (Must be stringified for FormData)
+        formData.append('price', JSON.stringify(productData.price));
+        formData.append('metal', JSON.stringify(productData.metal));
+        formData.append('dimensions', JSON.stringify(productData.dimensions));
+        
+        // Filter out empty stone rows before appending
+        const validStones = stones.filter(s => s.type || s.shape || s.weight);
+        formData.append('stones', JSON.stringify(validStones));
+
+        // 4. Append Files
         selectedImages.forEach(img => formData.append('images', img.file));
        
-
         try {
-            const response = await axios.post('http://localhost:4500/api/product', formData);
+            const response = await axios.post('http://localhost:4500/api/product', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
             if (response.data.success) {
                 showToast("Product Published Successfully!", "success");
                 setTimeout(() => window.location.reload(), 2000);
             }
         } catch (error) {
-            showToast(error.response?.data?.error || "Failed to create product", 'error');
-        } finally { setIsLoading(false); }
-
+            showToast(error.response?.data?.error || error.response?.data?.message || "Failed to create product", 'error');
+        } finally { 
+            setIsLoading(false); 
+        }
     };
 
     return (
@@ -166,12 +187,16 @@ const AddProduct = () => {
                     <p className="text-sm font-bold">{toast.message}</p>
                 </div>
             )}
+            
             <div>
                 <h1 className="text-[#222222] text-[24px] font-bold">Add Product</h1>
             </div>
+            
             <div className="grid grid-cols-2 gap-[63px] mt-[30px]">
+                
+                {/* LEFT COLUMN */}
                 <div>
-                    <div className="">
+                    <div>
                         <h1 className="text-[#222222] font-semibold text-[18px]">
                             Product Information
                         </h1>
@@ -184,7 +209,7 @@ const AddProduct = () => {
                                     <input
                                         name="title" value={productData.title} onChange={handleInputChange}
                                         type="text"
-                                        placeholder="e.g. Rings, Necklaces..."
+                                        placeholder="e.g. Elsa Peretti Diamonds by the Yard"
                                         className="w-full bg-[#F3F3F3] rounded-[8px] px-5 py-3 outline-none focus:ring-1 focus:ring-[#B58E58] text-[12px]"
                                     />
                                 </div>
@@ -217,7 +242,6 @@ const AddProduct = () => {
 
                                 {/* Category & Sub Category Dropdowns */}
                                 <div className="grid grid-cols-2 gap-4">
-                                    {/* Category Dropdown with Luxe Labeling */}
                                     <div className="relative">
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Category*</label>
                                         <select value={productData.category} onChange={handleCategoryChange} className="w-full appearance-none bg-[#F3F3F3] rounded-[8px] px-4 py-3 text-[12px] outline-none">
@@ -239,11 +263,11 @@ const AddProduct = () => {
                                 {/* Collection Dropdown */}
                                 <div className="relative">
                                     <label className="text-xs font-bold text-gray-400">COLLECTION</label>
-                                    <select name="collection" value={productData.collection} onChange={handleInputChange} className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-2 outline-none text-[12px] appearance-none">
+                                    <select name="collectionId" value={productData.collectionId} onChange={handleInputChange} className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-2 outline-none text-[12px] appearance-none">
                                         <option value="">Select Collection</option>
                                         {collections.map(col => <option key={col._id} value={col._id}>{col.name}</option>)}
-                                        <ChevronDown size={14} className="absolute right-4 bottom-4 text-gray-400" />
                                     </select>
+                                    <ChevronDown size={14} className="absolute right-4 bottom-4 text-gray-400" />
                                 </div>
 
                                 {/* Toggles: New Arrival & Luxe */}
@@ -266,17 +290,38 @@ const AddProduct = () => {
                         </div>
 
                     </div>
+                    
+                    {/* Price Distribution */}
                     <div className=" mt-8">
-                        <h2 className="text-[18px] font-semibold text-[#222222] mb-4">Price Distribution</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-[18px] font-semibold text-[#222222]">Price Distribution</h2>
+                            {/* Currency Selector */}
+                            <select 
+                                value={productData.price.currency} 
+                                onChange={(e) => handleNestedChange('price', 'currency', e.target.value)}
+                                className="bg-white border border-gray-200 rounded-md px-3 py-1 text-sm outline-none"
+                            >
+                                <option value="USD">USD ($)</option>
+                                <option value="INR">INR (₹)</option>
+                                <option value="EUR">EUR (€)</option>
+                            </select>
+                        </div>
                         <div className="grid grid-cols-2 gap-6 bg-white rounded-[18px] p-8">
                             {['basePrice', 'makingCharges', 'tax', 'finalPrice'].map(f => (
                                 <div key={f}>
                                     <label className="text-xs font-bold text-gray-400 uppercase">{f}</label>
-                                    <input type="number" value={productData.price[f]} onChange={(e) => handleNestedChange('price', f, e.target.value)} className="w-full bg-[#F3F3F3] rounded-[10px] px-4 py-3 mt-2 outline-none text-[12px]" />
+                                    <input 
+                                        type="number" 
+                                        value={productData.price[f]} 
+                                        onChange={(e) => handleNestedChange('price', f, e.target.value)} 
+                                        className="w-full bg-[#F3F3F3] rounded-[10px] px-4 py-3 mt-2 outline-none text-[12px]" 
+                                    />
                                 </div>
                             ))}
                         </div>
                     </div>
+                    
+                    {/* Search Tags */}
                     <div className=" h-fit mt-8">
                         <h2 className="text-[18px] font-semibold text-[#222222] mb-4">Search Tags</h2>
                         <div className='bg-white rounded-[18px] p-8'>
@@ -288,9 +333,11 @@ const AddProduct = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* RIGHT COLUMN */}
                 <div>
                     <div>
-                        <h1 className="text-[#222222] font-semibold text-[18px]">Image Product</h1>
+                        <h1 className="text-[#222222] font-semibold text-[18px]">Product Images</h1>
                         <div className="bg-white rounded-[18px] p-[26px] mt-[16px]">
                             <label className="h-[121px] border-[1px] border-[#0000003B] rounded-[8px] border-dashed flex flex-col justify-center items-center bg-[#fafafa] cursor-pointer hover:bg-gray-50 transition-all">
                                 <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isConverting} />
@@ -307,23 +354,32 @@ const AddProduct = () => {
                             </div>
                         </div>
                     </div>
+
                     <div className="mt-8">
                         <h2 className="text-[18px] font-semibold text-[#222222] mb-4">Metal Details</h2>
                         <div className="grid grid-cols-2 gap-x-[63px] gap-y-6 bg-white rounded-[18px] p-8">
-                            <div>
+                            <div className="relative">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase">Metal Type</label>
-                                <select value={productData.metal.type} onChange={(e) => handleNestedChange('metal', 'type', e.target.value)} className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-1 outline-none text-[12px]">
+                                <select value={productData.metal.type} onChange={(e) => handleNestedChange('metal', 'type', e.target.value)} className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-1 outline-none text-[12px] appearance-none">
                                     <option value="Gold">Gold</option><option value="Silver">Silver</option><option value="Platinum">Platinum</option>
                                 </select>
+                                <ChevronDown size={14} className="absolute right-4 bottom-4 text-gray-400" />
                             </div>
                             {['quality', 'color', 'weight'].map(f => (
                                 <div key={f}>
                                     <label className="text-[10px] font-bold text-gray-400 uppercase">{f}</label>
-                                    <input value={productData.metal[f]} onChange={(e) => handleNestedChange('metal', f, e.target.value)} type={f === 'weight' ? 'number' : 'text'} className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-1 outline-none text-[12px]" />
+                                    <input 
+                                        placeholder={f === 'color' ? 'e.g. Rose Gold' : f === 'quality' ? 'e.g. 18k' : 'in grams'}
+                                        value={productData.metal[f]} 
+                                        onChange={(e) => handleNestedChange('metal', f, e.target.value)} 
+                                        type={f === 'weight' ? 'number' : 'text'} 
+                                        className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-1 outline-none text-[12px]" 
+                                    />
                                 </div>
                             ))}
                         </div>
                     </div>
+
                     {/* Dynamic Stone Details Section */}
                     <div className="bg-white rounded-[18px] p-8 mt-8">
                         <div className="flex justify-between items-center mb-6">
@@ -339,13 +395,19 @@ const AddProduct = () => {
                         {stones.map((stone, i) => (
                             <div key={i} className="grid grid-cols-3 gap-3 p-3 border border-gray-50 rounded-xl mb-3 relative">
                                 {['type', 'shape', 'color', 'clarity', 'weight', 'count'].map(field => (
-                                    <input key={field} placeholder={field.charAt(0).toUpperCase() + field.slice(1)} value={stone[field]} onChange={(e) => handleStoneChange(i, field, e.target.value)} className="bg-[#F3F3F3] rounded-[6px] px-2 py-2 text-[10px] outline-none" />
+                                    <input 
+                                        key={field} 
+                                        type={field === 'weight' || field === 'count' ? 'number' : 'text'}
+                                        placeholder={field.charAt(0).toUpperCase() + field.slice(1)} 
+                                        value={stone[field]} 
+                                        onChange={(e) => handleStoneChange(i, field, e.target.value)} 
+                                        className="bg-[#F3F3F3] rounded-[6px] px-2 py-2 text-[10px] outline-none" 
+                                    />
                                 ))}
-                                {stones.length > 1 && <button onClick={() => setStones(stones.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 text-red-500 bg-white shadow-sm rounded-full p-0.5"><X size={10} /></button>}
+                                {stones.length > 1 && <button onClick={() => setStones(stones.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 text-red-500 bg-white shadow-sm rounded-full p-0.5 border border-gray-100"><X size={10} /></button>}
                             </div>
                         ))}
                     </div>
-
 
                     <div className="bg-white rounded-[18px] p-8 mt-8">
                         <h2 className="text-[18px] font-semibold text-[#222222] mb-6">Dimensions</h2>
@@ -353,7 +415,13 @@ const AddProduct = () => {
                             {['width', 'length', 'size'].map(f => (
                                 <div key={f}>
                                     <label className="text-[10px] font-bold text-gray-400 uppercase">{f}</label>
-                                    <input value={productData.dimensions[f]} onChange={(e) => handleNestedChange('dimensions', f, e.target.value)} type="text" className="w-full bg-[#F3F3F3] rounded-[8px] px-3 py-2 mt-1 outline-none text-[12px]" />
+                                    <input 
+                                        value={productData.dimensions[f]} 
+                                        onChange={(e) => handleNestedChange('dimensions', f, e.target.value)} 
+                                        type="text" 
+                                        placeholder={f === 'size' ? 'e.g. 7' : 'e.g. 0.5 in'}
+                                        className="w-full bg-[#F3F3F3] rounded-[8px] px-3 py-2 mt-1 outline-none text-[12px]" 
+                                    />
                                 </div>
                             ))}
                         </div>
@@ -362,7 +430,7 @@ const AddProduct = () => {
                 </div>
 
                 {/* Final Submit Button */}
-                <div className="mt-2 flex justify-end">
+                <div className="col-span-2 mt-2 flex justify-end">
                     <button
                         disabled={isLoading}
                         onClick={handleCreateProduct}
@@ -378,4 +446,5 @@ const AddProduct = () => {
         </div>
     );
 }
-export default AddProduct
+
+export default AddProduct;

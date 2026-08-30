@@ -1,32 +1,41 @@
 const Collection = () => {
-
-    const img1 = "/images/collection1.webp";
+    const img1 = "/images/LuxuryBanner.webp";
     const img2 = "/images/collection2.webp";
     const img3 = "/images/collection3.webp";
 
     return (
-        <section className="horizontal-padding mt-[150px]">
-            <img src={img1} alt="Collection Image 1" className="w-full h-auto mb-15 transition-transform duration-500 hover:scale-105 cursor-pointer" />
-            <div className="flex flex-col md:flex-row gap-15 overflow-hidden h-[228px]">
-                {/* First Image */}
-                <div className="w-full md:w-1/2 aspect-[4/5] ">
+        <section className="horizontal-padding mt-16 md:mt-24 lg:mt-[150px]">
+            {/* First Image */}
+            <div className="overflow-hidden mb-6 md:mb-10 lg:mb-15 rounded-lg md:rounded-none">
+                <img 
+                    src={img1} 
+                    alt="Collection Image 1" 
+                    className="w-full h-auto transition-transform duration-500 hover:scale-105 cursor-pointer" 
+                />
+            </div>
+
+            {/* Bottom Images Container */}
+            <div className="flex flex-col md:flex-row gap-6 md:gap-10 lg:gap-15">
+                {/* Second Image */}
+                <div className="w-full md:w-1/2 overflow-hidden rounded-lg md:rounded-none">
                     <img
                         src={img2}
                         alt="Collection Image 2"
-                        className="w-full h-auto object-cover transition-transform duration-500 hover:scale-105 cursor-pointer"
+                        className="w-full h-auto transition-transform duration-500 hover:scale-105 cursor-pointer"
                     />
                 </div>
 
-                {/* Second Image */}
-                <div className="w-full md:w-1/2 aspect-[4/5] ">
+                {/* Third Image */}
+                <div className="w-full md:w-1/2 overflow-hidden rounded-lg md:rounded-none">
                     <img
                         src={img3}
                         alt="Collection Image 3"
-                        className="w-full h-auto object-cover transition-transform duration-500 hover:scale-105 cursor-pointer"
+                        className="w-full h-auto transition-transform duration-500 hover:scale-105 cursor-pointer"
                     />
                 </div>
             </div>
         </section>
-    )
-}
+    );
+};
+
 export default Collection;

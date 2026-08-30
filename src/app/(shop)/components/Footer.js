@@ -92,7 +92,7 @@ export default function Footer() {
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-8 px-6 lg:px-14 text-[#222222]">
                     {/* Brand Info */}
                     <div className="space-y-6 lg:col-span-1">
-                        <div className="relative w-48 h-12">
+                        <div className="relative w-48 h-12 -mt-2">
                             <Image src="/images/LogoNameFoot.svg" alt="Dwara Jewels" fill className="object-contain" />
                         </div>
                         <div className="space-y-4">

@@ -22,49 +22,67 @@ const faqData = [
 const FAQs = () => {
     const [openId, setOpenId] = useState(1);
     const exploreArrow = "/icons/ExploreArrow.svg";
+
     return (
         <section className="w-full">
-            {/* header */}
+            {/* Header */}
             <div>
-                <h2 className="text-[#BF8F5F] heading-tag">QUESTIONS</h2>
-                <h1 className="heading-main">Frequently Asked Questions (FaQ)</h1>
-                <div className="flex justify-between mt-2">
-                    <p className="heading-des">
+                <h2 className="text-[#BF8F5F] heading-tag text-sm sm:text-base">QUESTIONS</h2>
+                <h1 className="heading-main mt-2 text-3xl sm:text-4xl lg:text-[40px]">
+                    Frequently Asked Questions (FaQ)
+                </h1>
+                
+                {/* Flex-col on mobile, Flex-row on tablet+ */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-3 lg:mt-4">
+                    <p className="heading-des text-sm sm:text-base text-gray-600">
                         Discover our handpicked exquisite jewelry
                     </p>
-                    <div className="flex items-center gap-3 cursor-pointer">
-                        <p className="link-explore">Explore More</p>
-                        <img src={exploreArrow} alt="Explore Arrow" className="w-6" />
+                    <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group w-max">
+                        <p className="link-explore text-sm sm:text-base group-hover:text-[#BF8F5F] transition-colors">
+                            Explore More
+                        </p>
+                        <img 
+                            src={exploreArrow} 
+                            alt="Explore Arrow" 
+                            className="w-5 sm:w-6 transition-transform group-hover:translate-x-1" 
+                        />
                     </div>
                 </div>
             </div>
+
             {/* Accordion Section */}
-            <div className="flex flex-col gap-4 mt-14.5">
+            <div className="flex flex-col gap-3 sm:gap-4 mt-8 lg:mt-[58px]">
                 {faqData.map((item) => (
                     <div
                         key={item.id}
-                        className={`transition-all duration-300 overflow-hidden ${openId === item.id ? "bg-[#FCF6F2] p-8" : "bg-white px-8 py-4"
-                            }`}
+                        className={`transition-all duration-300 overflow-hidden rounded-lg sm:rounded-none ${
+                            openId === item.id 
+                                ? "bg-[#FCF6F2] p-4 sm:p-6 lg:p-8" 
+                                : "bg-white px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-4"
+                        }`}
                     >
                         <div
-                            className="flex items-center gap-6 cursor-pointer"
+                            className="flex items-center gap-4 sm:gap-6 cursor-pointer"
                             onClick={() => setOpenId(openId === item.id ? null : item.id)}
                         >
                             {/* Icon: Minus if open, Plus if closed */}
-                            <span className="text-[#B58E58] text-2xl font-light w-6">
+                            <span className="text-[#B58E58] text-xl sm:text-2xl font-light w-5 sm:w-6 flex-shrink-0 text-center">
                                 {openId === item.id ? "—" : "+"}
                             </span>
 
-                            <h4 className="title-main">{item.question}</h4>
+                            <h4 className="title-main text-base sm:text-lg">{item.question}</h4>
                         </div>
 
                         {/* Answer Content */}
                         <div
-                            className={`grid transition-all duration-300 ease-in-out ${openId === item.id ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0"
-                                }`}
+                            className={`grid transition-all duration-300 ease-in-out ${
+                                openId === item.id 
+                                    ? "grid-rows-[1fr] opacity-100 mt-2 sm:mt-3" 
+                                    : "grid-rows-[0fr] opacity-0"
+                            }`}
                         >
                             <div className="overflow-hidden">
-                                <p className="title-des ml-12">
+                                <p className="title-des ml-9 sm:ml-12 text-sm sm:text-base text-gray-600">
                                     {item.answer}
                                 </p>
                             </div>
@@ -73,7 +91,7 @@ const FAQs = () => {
                 ))}
             </div>
         </section>
-    )
-}
+    );
+};
 
 export default FAQs;

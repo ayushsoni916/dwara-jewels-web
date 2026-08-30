@@ -1,14 +1,20 @@
 import Insights from "./Insights";
-
-const { default: FAQs } = require("./FAQs")
+import FAQs from "./FAQs"; 
 
 const FaqInsight = () => {
     return (
-        <section className="flex horizontal-padding jucstify-between gap-10 lg:gap-15 xxl:gap-20 mt-52.25">
-            <FAQs />
-            <Insights />
+        <section className="horizontal-padding flex flex-col xl:flex-row justify-between gap-16 xl:gap-15 2xl:gap-20 mt-16 md:mt-24 lg:mt-[209px]">
+            {/* Left Side: FAQs */}
+            <div className="w-full xl:w-1/2">
+                <FAQs />
+            </div>
+            
+            {/* Right Side: Insights */}
+            <div className="w-full xl:w-1/2">
+                <Insights />
+            </div>
         </section>
-    )
-}
+    );
+};
 
-export default FaqInsight;  
+export default FaqInsight;

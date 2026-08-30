@@ -7,6 +7,7 @@ import Hero from "@/app/(shop)/components/Home/Hero";
 import NewArrivalWithCollection from "@/app/(shop)/components/Home/NewArrivalWithCollection";
 import OurStory from "@/app/(shop)/components/Home/OurStory";
 import Testimonials from "@/app/(shop)/components/Home/Testimonials";
+import RecentlyViewed from "./components/Home/RecentlyViewed";
 
 export default function Home() {
   return (
@@ -20,6 +21,7 @@ export default function Home() {
       <Testimonials />
       <CollectionSecond />
       <OurStory />
+      <RecentlyViewed/>
     </main>
   );
 }
