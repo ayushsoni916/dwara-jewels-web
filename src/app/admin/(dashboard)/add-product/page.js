@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, ChevronDown, ImageIcon, Loader2, Plus, Upload, X } from 'lucide-react'; 
-import imageCompression from 'browser-image-compression';
-import heic2any from "heic2any";
+import { AlertCircle, CheckCircle2, ChevronDown, ImageIcon, Loader2, Plus, Upload, X } from 'lucide-react';
+// import imageCompression from 'browser-image-compression';
+// import heic2any from "heic2any";
 import axios from 'axios';
 
 const AddProduct = () => {
@@ -47,8 +47,8 @@ const AddProduct = () => {
         const fetchData = async () => {
             try {
                 const [catRes, colRes] = await Promise.all([
-                    axios.get('http://localhost:4500/api/category'),
-                    axios.get('http://localhost:4500/api/collection')
+                    axios.get('https://dwarajewels.in/api/category'),
+                    axios.get('https://dwarajewels.in/api/collection')
                 ]);
                 if (catRes.data.success) setCategories(catRes.data.categories);
                 if (colRes.data.success) setCollections(colRes.data.collections);
@@ -96,6 +96,8 @@ const AddProduct = () => {
         setIsConverting(true);
 
         try {
+            const imageCompression = (await import('browser-image-compression')).default;
+            const heic2any = (await import('heic2any')).default;
             const processedFiles = await Promise.all(
                 files.map(async (file) => {
                     let fileToCompress = file;
@@ -154,16 +156,16 @@ const AddProduct = () => {
         formData.append('price', JSON.stringify(productData.price));
         formData.append('metal', JSON.stringify(productData.metal));
         formData.append('dimensions', JSON.stringify(productData.dimensions));
-        
+
         // Filter out empty stone rows before appending
         const validStones = stones.filter(s => s.type || s.shape || s.weight);
         formData.append('stones', JSON.stringify(validStones));
 
         // 4. Append Files
         selectedImages.forEach(img => formData.append('images', img.file));
-       
+
         try {
-            const response = await axios.post('http://localhost:4500/api/product', formData, {
+            const response = await axios.post('https://dwarajewels.in/api/product', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             if (response.data.success) {
@@ -172,8 +174,8 @@ const AddProduct = () => {
             }
         } catch (error) {
             showToast(error.response?.data?.error || error.response?.data?.message || "Failed to create product", 'error');
-        } finally { 
-            setIsLoading(false); 
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -187,13 +189,13 @@ const AddProduct = () => {
                     <p className="text-sm font-bold">{toast.message}</p>
                 </div>
             )}
-            
+
             <div>
                 <h1 className="text-[#222222] text-[24px] font-bold">Add Product</h1>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-[63px] mt-[30px]">
-                
+
                 {/* LEFT COLUMN */}
                 <div>
                     <div>
@@ -290,14 +292,14 @@ const AddProduct = () => {
                         </div>
 
                     </div>
-                    
+
                     {/* Price Distribution */}
                     <div className=" mt-8">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-[18px] font-semibold text-[#222222]">Price Distribution</h2>
                             {/* Currency Selector */}
-                            <select 
-                                value={productData.price.currency} 
+                            <select
+                                value={productData.price.currency}
                                 onChange={(e) => handleNestedChange('price', 'currency', e.target.value)}
                                 className="bg-white border border-gray-200 rounded-md px-3 py-1 text-sm outline-none"
                             >
@@ -310,17 +312,17 @@ const AddProduct = () => {
                             {['basePrice', 'makingCharges', 'tax', 'finalPrice'].map(f => (
                                 <div key={f}>
                                     <label className="text-xs font-bold text-gray-400 uppercase">{f}</label>
-                                    <input 
-                                        type="number" 
-                                        value={productData.price[f]} 
-                                        onChange={(e) => handleNestedChange('price', f, e.target.value)} 
-                                        className="w-full bg-[#F3F3F3] rounded-[10px] px-4 py-3 mt-2 outline-none text-[12px]" 
+                                    <input
+                                        type="number"
+                                        value={productData.price[f]}
+                                        onChange={(e) => handleNestedChange('price', f, e.target.value)}
+                                        className="w-full bg-[#F3F3F3] rounded-[10px] px-4 py-3 mt-2 outline-none text-[12px]"
                                     />
                                 </div>
                             ))}
                         </div>
                     </div>
-                    
+
                     {/* Search Tags */}
                     <div className=" h-fit mt-8">
                         <h2 className="text-[18px] font-semibold text-[#222222] mb-4">Search Tags</h2>
@@ -368,12 +370,12 @@ const AddProduct = () => {
                             {['quality', 'color', 'weight'].map(f => (
                                 <div key={f}>
                                     <label className="text-[10px] font-bold text-gray-400 uppercase">{f}</label>
-                                    <input 
+                                    <input
                                         placeholder={f === 'color' ? 'e.g. Rose Gold' : f === 'quality' ? 'e.g. 18k' : 'in grams'}
-                                        value={productData.metal[f]} 
-                                        onChange={(e) => handleNestedChange('metal', f, e.target.value)} 
-                                        type={f === 'weight' ? 'number' : 'text'} 
-                                        className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-1 outline-none text-[12px]" 
+                                        value={productData.metal[f]}
+                                        onChange={(e) => handleNestedChange('metal', f, e.target.value)}
+                                        type={f === 'weight' ? 'number' : 'text'}
+                                        className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-1 outline-none text-[12px]"
                                     />
                                 </div>
                             ))}
@@ -395,13 +397,13 @@ const AddProduct = () => {
                         {stones.map((stone, i) => (
                             <div key={i} className="grid grid-cols-3 gap-3 p-3 border border-gray-50 rounded-xl mb-3 relative">
                                 {['type', 'shape', 'color', 'clarity', 'weight', 'count'].map(field => (
-                                    <input 
-                                        key={field} 
+                                    <input
+                                        key={field}
                                         type={field === 'weight' || field === 'count' ? 'number' : 'text'}
-                                        placeholder={field.charAt(0).toUpperCase() + field.slice(1)} 
-                                        value={stone[field]} 
-                                        onChange={(e) => handleStoneChange(i, field, e.target.value)} 
-                                        className="bg-[#F3F3F3] rounded-[6px] px-2 py-2 text-[10px] outline-none" 
+                                        placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                                        value={stone[field]}
+                                        onChange={(e) => handleStoneChange(i, field, e.target.value)}
+                                        className="bg-[#F3F3F3] rounded-[6px] px-2 py-2 text-[10px] outline-none"
                                     />
                                 ))}
                                 {stones.length > 1 && <button onClick={() => setStones(stones.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 text-red-500 bg-white shadow-sm rounded-full p-0.5 border border-gray-100"><X size={10} /></button>}
@@ -415,12 +417,12 @@ const AddProduct = () => {
                             {['width', 'length', 'size'].map(f => (
                                 <div key={f}>
                                     <label className="text-[10px] font-bold text-gray-400 uppercase">{f}</label>
-                                    <input 
-                                        value={productData.dimensions[f]} 
-                                        onChange={(e) => handleNestedChange('dimensions', f, e.target.value)} 
-                                        type="text" 
+                                    <input
+                                        value={productData.dimensions[f]}
+                                        onChange={(e) => handleNestedChange('dimensions', f, e.target.value)}
+                                        type="text"
                                         placeholder={f === 'size' ? 'e.g. 7' : 'e.g. 0.5 in'}
-                                        className="w-full bg-[#F3F3F3] rounded-[8px] px-3 py-2 mt-1 outline-none text-[12px]" 
+                                        className="w-full bg-[#F3F3F3] rounded-[8px] px-3 py-2 mt-1 outline-none text-[12px]"
                                     />
                                 </div>
                             ))}

@@ -9,7 +9,7 @@ import RecentlyViewedTracker from '../../components/RecentlyViewedTracker';
 // --- 1. Server-Side Data Fetching ---
 async function getProduct(id) {
     try {
-        const res = await fetch(`http://localhost:4500/api/product/${id}`, {
+        const res = await fetch(`https://dwarajewels.in/api/product/${id}`, {
             // Using no-store temporarily so we don't cache 404 errors while testing
             cache: 'no-store' 
         });

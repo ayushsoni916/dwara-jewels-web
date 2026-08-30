@@ -35,8 +35,8 @@ async function getCategoryPageData(searchParams) {
 
         // Fetch filtered products and categories in parallel
         const [productsRes, categoriesRes] = await Promise.all([
-            fetch(`http://localhost:4500/api/product?${queryParams.toString()}`, { cache: 'no-store' }),
-            fetch(`http://localhost:4500/api/category?type=normal`, { next: { revalidate: 3600 } })
+            fetch(`https://dwarajewels.in/api/product?${queryParams.toString()}`, { cache: 'no-store' }),
+            fetch(`https://dwarajewels.in/api/category?type=normal`, { next: { revalidate: 3600 } })
         ]);
 
         const productsData = productsRes.ok ? await productsRes.json() : { products: [] };

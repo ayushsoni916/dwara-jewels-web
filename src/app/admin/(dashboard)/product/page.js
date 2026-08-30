@@ -20,18 +20,18 @@ const ProductPage = () => {
 
     // --- API Functions ---
     const fetchCategoryApi = async (type = 'normal') => {
-        const response = await axios.get(`http://localhost:4500/api/category?type=${type}`);
+        const response = await axios.get(`https://dwarajewels.in/api/category?type=${type}`);
         return response.data;
     };
 
     const fetchCollectionApi = async () => {
-        const response = await axios.get(`http://localhost:4500/api/collection`);
+        const response = await axios.get(`https://dwarajewels.in/api/collection`);
         return response.data;
     };
 
     const fetchProductApi = async (params = {}) => {
         const queryString = new URLSearchParams(params).toString();
-        const response = await axios.get(`http://localhost:4500/api/product?${queryString}`);
+        const response = await axios.get(`https://dwarajewels.in/api/product?${queryString}`);
         return response.data;
     };
 

@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { Plus, X, Image as ImageIcon, Star, Crown, Loader2, Edit2, Trash2 } from 'lucide-react';
-import imageCompression from 'browser-image-compression';
-import heic2any from "heic2any";
+// import imageCompression from 'browser-image-compression';
+// import heic2any from "heic2any";
 
 const CategoryManagement = () => {
     // State management
@@ -22,7 +22,7 @@ const CategoryManagement = () => {
     // --- 1. Fetch Categories on Load ---
     const fetchCategories = async () => {
         try {
-            const res = await fetch('http://localhost:4500/api/category');
+            const res = await fetch('https://dwarajewels.in/api/category');
             const data = await res.json();
             if (data.success) setCategories(data.categories);
         } catch (err) {
@@ -41,6 +41,43 @@ const CategoryManagement = () => {
     };
 
     // --- Image Handling Logic ---
+    // const handleImageUpload = async (e) => {
+    //     const file = e.target.files[0];
+    //     if (!file) return;
+
+    //     setIsConverting(true);
+    //     const options = {
+    //         maxSizeMB: 1,
+    //         maxWidthOrHeight: 1920,
+    //         useWebWorker: true,
+    //         fileType: "image/webp"
+    //     };
+
+    //     try {
+    //         let fileToCompress = file;
+    //         const isHEIC = file.type === "image/heic" || file.name.toLowerCase().endsWith(".heic");
+
+    //         if (isHEIC) {
+    //             const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg" });
+    //             const safeBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+    //             fileToCompress = new File([safeBlob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
+    //         }
+
+    //         const compressedFile = await imageCompression(fileToCompress, options);
+    //         const finalWebpName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
+    //         const webpBlob = new File([compressedFile], finalWebpName, { type: "image/webp" });
+
+    //         setCategoryImage({
+    //             url: URL.createObjectURL(webpBlob),
+    //             file: webpBlob
+    //         });
+    //     } catch (error) {
+    //         console.error("Conversion failed:", error);
+    //     } finally {
+    //         setIsConverting(false);
+    //     }
+    // };
+    // --- Image Handling Logic ---
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -54,6 +91,10 @@ const CategoryManagement = () => {
         };
 
         try {
+            // Dynamically import browser-only libraries HERE
+            const imageCompression = (await import('browser-image-compression')).default;
+            const heic2any = (await import('heic2any')).default;
+
             let fileToCompress = file;
             const isHEIC = file.type === "image/heic" || file.name.toLowerCase().endsWith(".heic");
 
@@ -107,7 +148,7 @@ const CategoryManagement = () => {
         formData.append('isLuxeCategory', isLuxury);
 
         try {
-            const response = await fetch('http://localhost:4500/api/category', {
+            const response = await fetch('https://dwarajewels.in/api/category', {
                 method: 'POST',
                 body: formData,
             });
@@ -266,7 +307,7 @@ const CategoryManagement = () => {
                     </div>
                 </div>
 
-                
+
 
             </div>
             <div className="mt-[60px]">
@@ -286,10 +327,10 @@ const CategoryManagement = () => {
                             {categories.map((cat) => (
                                 <tr key={cat._id} className="hover:bg-gray-50 transition-colors group">
                                     <td className="px-6 py-4">
-                                        <img 
-                                            src={typeof cat.image === 'string' ? cat.image : cat.image?.url} 
-                                            className="w-12 h-12 rounded-lg object-contain bg-gray-50" 
-                                            alt={cat.name} 
+                                        <img
+                                            src={typeof cat.image === 'string' ? cat.image : cat.image?.url}
+                                            className="w-12 h-12 rounded-lg object-contain bg-gray-50"
+                                            alt={cat.name}
                                         />
                                     </td>
                                     <td className="px-6 py-4 font-semibold text-[#222222]">{cat.name}</td>
@@ -305,8 +346,8 @@ const CategoryManagement = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="text-blue-500 hover:text-blue-700"><Edit2 size={16}/></button>
-                                            <button className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                                            <button className="text-blue-500 hover:text-blue-700"><Edit2 size={16} /></button>
+                                            <button className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -314,7 +355,7 @@ const CategoryManagement = () => {
                         </tbody>
                     </table>
                 </div>
-                </div>
+            </div>
         </div>
     );
 };

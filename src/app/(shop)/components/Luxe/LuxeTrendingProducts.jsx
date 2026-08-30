@@ -4,7 +4,7 @@ import Link from 'next/link';
 // --- Server-Side Fetch Function for Luxe Trending Products ---
 async function getLuxeTrendingProducts() {
     try {
-        const res = await fetch('http://localhost:4500/api/product?limit=4&luxe=true', {
+        const res = await fetch('https://dwarajewels.in/api/product?limit=4&luxe=true', {
             next: { revalidate: 3600 }
         });
 

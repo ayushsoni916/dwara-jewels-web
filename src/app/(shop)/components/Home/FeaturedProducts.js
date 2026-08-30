@@ -4,7 +4,7 @@ import Link from 'next/link';
 // --- Server-Side Fetch Function ---
 async function getTrendingProducts() {
     try {
-        const res = await fetch('http://localhost:4500/api/product?limit=4', {
+        const res = await fetch('https://dwarajewels.in/api/product?limit=4', {
             next: { revalidate: 3600 }
         });
 

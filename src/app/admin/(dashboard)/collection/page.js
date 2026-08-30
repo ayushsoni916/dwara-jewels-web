@@ -1,14 +1,14 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Plus, X, Image as ImageIcon, Loader2, Trash2 } from 'lucide-react';
-import imageCompression from 'browser-image-compression';
-import heic2any from "heic2any";
+// import imageCompression from 'browser-image-compression';
+// import heic2any from "heic2any";
 
 const CollectionManagement = () => {
     const [name, setName] = useState('');
     const [image, setImage] = useState(null);
     const [collections, setCollections] = useState([]);
-    
+
     const [isConverting, setIsConverting] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '' });
@@ -16,7 +16,7 @@ const CollectionManagement = () => {
     // --- Fetch Collections ---
     const fetchCollections = async () => {
         try {
-            const res = await fetch('http://localhost:4500/api/collection');
+            const res = await fetch('https://dwarajewels.in/api/collection');
             const data = await res.json();
             if (data.success) setCollections(data.collections);
         } catch (err) { console.error(err); }
@@ -30,10 +30,12 @@ const CollectionManagement = () => {
         if (!file) return;
         setIsConverting(true);
         try {
+            const imageCompression = (await import('browser-image-compression')).default;
+            const heic2any = (await import('heic2any')).default;
             let fileToProcess = file;
             if (file.type === "image/heic" || file.name.toLowerCase().endsWith(".heic")) {
                 const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg" });
-                fileToProcess = new File([Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob], 
+                fileToProcess = new File([Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob],
                     file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
             }
             const compressedFile = await imageCompression(fileToProcess, { maxSizeMB: 1, fileType: "image/webp" });
@@ -51,7 +53,7 @@ const CollectionManagement = () => {
         formData.append('image', image.file);
 
         try {
-            const res = await fetch('http://localhost:4500/api/collection', { method: 'POST', body: formData });
+            const res = await fetch('https://dwarajewels.in/api/collection', { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
                 setToast({ show: true, message: "Collection Created!" });
@@ -76,10 +78,10 @@ const CollectionManagement = () => {
                 {/* LEFT: Add Collection */}
                 <div className="bg-white rounded-[16px] p-8 shadow-sm h-fit">
                     <h2 className="text-[18px] font-semibold mb-6">Create Collection</h2>
-                    
+
                     <div className="mb-6">
                         <label className="block text-[12px] font-medium mb-3">Collection Name</label>
-                        <input 
+                        <input
                             type="text" value={name} onChange={(e) => setName(e.target.value)}
                             placeholder="e.g. Bridal Collection, Summer Special"
                             className="w-full bg-[#F3F3F3] text-[12px] rounded-[8px] px-4 py-3 outline-none focus:ring-1 focus:ring-[#B58E58]"
@@ -89,23 +91,23 @@ const CollectionManagement = () => {
                     <div className="mb-8">
                         <label className="block text-sm font-medium mb-3">Collection Image</label>
                         <div className="relative h-[250px] border-2 border-dashed border-gray-200 rounded-[15px] bg-gray-50 flex items-center justify-center overflow-hidden">
-                            {isConverting ? <Loader2 className="animate-spin text-[#B58E58]" /> : 
-                             image ? (
-                                <>
-                                    <img src={image.url} className="w-full h-full object-contain p-4" alt="preview" />
-                                    <button onClick={() => setImage(null)} className="absolute top-3 right-3 bg-red-500 text-white p-1.5 rounded-full shadow-md"><X size={16}/></button>
-                                </>
-                             ) : (
-                                <label className="cursor-pointer text-center flex flex-col items-center">
-                                    <ImageIcon className="text-[#B58E58] mb-2" size={32} />
-                                    <p className="text-sm font-semibold">Upload Banner</p>
-                                    <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-                                </label>
-                             )}
+                            {isConverting ? <Loader2 className="animate-spin text-[#B58E58]" /> :
+                                image ? (
+                                    <>
+                                        <img src={image.url} className="w-full h-full object-contain p-4" alt="preview" />
+                                        <button onClick={() => setImage(null)} className="absolute top-3 right-3 bg-red-500 text-white p-1.5 rounded-full shadow-md"><X size={16} /></button>
+                                    </>
+                                ) : (
+                                    <label className="cursor-pointer text-center flex flex-col items-center">
+                                        <ImageIcon className="text-[#B58E58] mb-2" size={32} />
+                                        <p className="text-sm font-semibold">Upload Banner</p>
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                    </label>
+                                )}
                         </div>
                     </div>
 
-                    <button 
+                    <button
                         disabled={isLoading} onClick={handleSubmit}
                         className={`w-full py-4 rounded-[12px] font-bold text-white flex items-center justify-center gap-2
                         ${isLoading ? 'bg-gray-400' : 'bg-[#B58E58] hover:bg-[#9a7645] shadow-lg shadow-[#B58E58]/20'}`}

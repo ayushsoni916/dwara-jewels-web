@@ -60,7 +60,7 @@ export default function LuxeNavbar() {
 
             try {
                 // Fetching from backend API restricted to luxe products only
-                const res = await fetch(`http://localhost:4500/api/product?search=${encodeURIComponent(searchQuery)}&limit=4&luxe=true`);
+                const res = await fetch(`https://dwarajewels.in/api/product?search=${encodeURIComponent(searchQuery)}&limit=4&luxe=true`);
                 const data = await res.json();
 
                 if (data.success) {

@@ -32,8 +32,8 @@ async function getLuxeCategoryPageData(searchParams) {
         queryParams.append('luxe', 'true');
 
         const [productsRes, categoriesRes] = await Promise.all([
-            fetch(`http://localhost:4500/api/product?${queryParams.toString()}`, { cache: 'no-store' }),
-            fetch(`http://localhost:4500/api/category?type=luxe`, { next: { revalidate: 3600 } })
+            fetch(`https://dwarajewels.in/api/product?${queryParams.toString()}`, { cache: 'no-store' }),
+            fetch(`https://dwarajewels.in/api/category?type=luxe`, { next: { revalidate: 3600 } })
         ]);
 
         const productsData = productsRes.ok ? await productsRes.json() : { products: [] };

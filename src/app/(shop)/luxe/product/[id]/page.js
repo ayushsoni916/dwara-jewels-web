@@ -8,7 +8,7 @@ import LuxeProductAccordions from '@/app/(shop)/components/Luxe/LuxeProductAccor
 // --- Server-Side Data Fetching ---
 async function getProduct(id) {
     try {
-        const res = await fetch(`http://localhost:4500/api/product/${id}`, {
+        const res = await fetch(`https://dwarajewels.in/api/product/${id}`, {
             cache: 'no-store'
         });
 

@@ -5,7 +5,7 @@ import Link from 'next/link';
 async function getNewArrivalProducts() {
     try {
         // Fetch max 6 products marked as new arrivals
-        const res = await fetch('http://localhost:4500/api/product?isNewArrival=true&limit=6', {
+        const res = await fetch('https://dwarajewels.in/api/product?isNewArrival=true&limit=6', {
             next: { revalidate: 3600 } // Revalidate every hour for high performance & SEO
         });
 

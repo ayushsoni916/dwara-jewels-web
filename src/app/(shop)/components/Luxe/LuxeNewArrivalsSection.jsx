@@ -5,7 +5,7 @@ import Link from 'next/link';
 async function getLuxeNewArrivals() {
     try {
         // Fetching luxe products specifically marked as new arrivals
-        const res = await fetch('http://localhost:4500/api/product?limit=6&luxe=true', {
+        const res = await fetch('https://dwarajewels.in/api/product?limit=6&luxe=true', {
             next: { revalidate: 3600 }
         });
 
