@@ -1,9 +1,9 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2, ChevronDown, ImageIcon, Loader2, Plus, Upload, X } from 'lucide-react';
-// import imageCompression from 'browser-image-compression';
-// import heic2any from "heic2any";
 import axios from 'axios';
+import ReactCrop from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 const AddProduct = () => {
 
@@ -13,12 +13,12 @@ const AddProduct = () => {
         description: '',
         category: '',
         subCategory: '',
-        collectionId: '', // Mapped to 'collection' in schema
+        collectionId: '',
         stock: 0,
         isNewArrival: false,
         isLuxe: false,
-        tags: '', // Comma separated string in UI
-        price: { basePrice: '', makingCharges: '', tax: '', finalPrice: '', currency: 'USD' },
+        tags: '',
+        price: { basePrice: '', makingCharges: 0, tax: '', finalPrice: '', currency: 'INR' }, // Default INR, makingCharges 0
         metal: { type: 'Gold', quality: '', color: '', weight: '' },
         dimensions: { width: '', length: '', size: '' }
     });
@@ -28,21 +28,74 @@ const AddProduct = () => {
     ]);
     const [selectedImages, setSelectedImages] = useState([]);
 
-    // --- UI & API States ---
     const [categories, setCategories] = useState([]);
     const [collections, setCollections] = useState([]);
     const [availableSubCategories, setAvailableSubCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+    const [draggedIndex, setDraggedIndex] = useState(null);
+    const [cropModal, setCropModal] = useState({ isOpen: false, index: null, src: '' });
+    const [crop, setCrop] = useState({ unit: '%', width: 80, height: 80, x: 10, y: 10 });
+    const [completedCrop, setCompletedCrop] = useState(null);
 
-    // --- Toast Helper ---
+    // --- DRAG & DROP REARRANGING ---
+    const handleDragStart = (e, index) => setDraggedIndex(index);
+
+    const handleDrop = (e, dropIndex) => {
+        e.preventDefault();
+        if (draggedIndex === null || draggedIndex === dropIndex) return;
+
+        const newImages = [...selectedImages];
+        const [draggedImage] = newImages.splice(draggedIndex, 1);
+        newImages.splice(dropIndex, 0, draggedImage);
+
+        setSelectedImages(newImages);
+        setDraggedIndex(null);
+    };
+
+    // --- CROP SAVING LOGIC ---
+    const handleSaveCrop = async () => {
+        if (!completedCrop || !completedCrop.width || !completedCrop.height) return;
+        setIsLoading(true);
+
+        const image = document.getElementById('crop-source-image');
+        const canvas = document.createElement('canvas');
+        const scaleX = image.naturalWidth / image.width;
+        const scaleY = image.naturalHeight / image.height;
+        canvas.width = completedCrop.width;
+        canvas.height = completedCrop.height;
+        const ctx = canvas.getContext('2d');
+
+        ctx.drawImage(
+            image,
+            completedCrop.x * scaleX, completedCrop.y * scaleY,
+            completedCrop.width * scaleX, completedCrop.height * scaleY,
+            0, 0, completedCrop.width, completedCrop.height
+        );
+
+        canvas.toBlob((blob) => {
+            if (blob) {
+                const file = new File([blob], 'cropped-image.webp', { type: 'image/webp' });
+                const url = URL.createObjectURL(file);
+                const newImages = [...selectedImages];
+                newImages[cropModal.index] = {
+                    ...newImages[cropModal.index], // <-- ADD THIS: Keeps the originalUrl intact
+                    url: url,
+                    file: file
+                };
+                setSelectedImages(newImages);
+                setCropModal({ isOpen: false, index: null, src: '' });
+            }
+            setIsLoading(false);
+        }, 'image/webp');
+    };
+
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
         setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
     };
 
-    // --- Fetch Initial Data ---
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -59,7 +112,6 @@ const AddProduct = () => {
         fetchData();
     }, []);
 
-    // --- Change Handlers ---
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setProductData(prev => ({ ...prev, [name]: value }));
@@ -69,6 +121,28 @@ const AddProduct = () => {
         setProductData(prev => ({
             ...prev,
             [parent]: { ...prev[parent], [field]: value }
+        }));
+    };
+
+    // --- NEW: Price Calculation Logic ---
+    const handlePriceChange = (e) => {
+        const finalPrice = e.target.value;
+        const numFinal = parseFloat(finalPrice) || 0;
+
+        // Calculate Base (100%) and Tax (3%)
+        const basePrice = (numFinal / 1.03).toFixed(2);
+        const tax = (numFinal - basePrice).toFixed(2);
+
+        setProductData(prev => ({
+            ...prev,
+            price: {
+                ...prev.price,
+                finalPrice: finalPrice,
+                basePrice: basePrice,
+                tax: tax,
+                makingCharges: 0, // Always 0
+                currency: 'INR'
+            }
         }));
     };
 
@@ -89,7 +163,7 @@ const AddProduct = () => {
 
     const removeImage = (index) => setSelectedImages(selectedImages.filter((_, i) => i !== index));
 
-    // --- Image Processing ---
+    // --- UPDATED: Sequential Image Processing ---
     const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
@@ -98,25 +172,39 @@ const AddProduct = () => {
         try {
             const imageCompression = (await import('browser-image-compression')).default;
             const heic2any = (await import('heic2any')).default;
-            const processedFiles = await Promise.all(
-                files.map(async (file) => {
-                    let fileToCompress = file;
-                    const isHEIC = file.type === "image/heic" || file.name.toLowerCase().endsWith(".heic");
-                    if (isHEIC) {
-                        const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg" });
-                        fileToCompress = new File([Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob],
-                            file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
-                    }
-                    const compressedFile = await imageCompression(fileToCompress, { maxSizeMB: 1, fileType: "image/webp" });
-                    const webpBlob = new File([compressedFile], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: "image/webp" });
-                    return { url: URL.createObjectURL(webpBlob), file: webpBlob };
-                })
-            );
+
+            const processedFiles = [];
+
+            // Process images sequentially instead of Promise.all to prevent browser crashes
+            for (const file of files) {
+                let fileToCompress = file;
+                const isHEIC = file.type === "image/heic" || file.name.toLowerCase().endsWith(".heic");
+
+                if (isHEIC) {
+                    const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg" });
+                    fileToCompress = new File([Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob],
+                        file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
+                }
+
+                // Reduced maxSizeMB to 0.5 (500kb) to prevent "Payload Too Large" errors when uploading 5+ images
+                const compressedFile = await imageCompression(fileToCompress, { maxSizeMB: 1.5, fileType: "image/webp" });
+                const webpBlob = new File([compressedFile], file.name.replace(/\.[^/.]+$/, "") + ".webp", { type: "image/webp" });
+
+                processedFiles.push({
+                    url: URL.createObjectURL(webpBlob),
+                    file: webpBlob,
+                    originalUrl: URL.createObjectURL(webpBlob) // <-- ADD THIS
+                });
+            }
+
             setSelectedImages(prev => [...prev, ...processedFiles]);
-        } catch (error) { showToast("Image conversion failed", "error"); } finally { setIsConverting(false); }
+        } catch (error) {
+            showToast("Image conversion failed", "error");
+        } finally {
+            setIsConverting(false);
+        }
     };
 
-    // --- Submit Logic ---
     const validateForm = () => {
         if (!productData.title) return "Product Name is required";
         if (!productData.sku) return "SKU is required";
@@ -133,35 +221,30 @@ const AddProduct = () => {
         setIsLoading(true);
         const formData = new FormData();
 
-        // 1. Append Standard Text/Boolean Fields
         formData.append('title', productData.title);
         formData.append('sku', productData.sku);
         formData.append('description', productData.description);
         formData.append('category', productData.category);
         formData.append('subCategory', productData.subCategory);
         if (productData.collectionId) {
-            formData.append('collection', productData.collectionId); // Maps to schema 'collection'
+            formData.append('collection', productData.collectionId);
         }
         formData.append('stock', productData.stock);
         formData.append('isNewArrival', productData.isNewArrival);
         formData.append('isLuxe', productData.isLuxe);
 
-        // 2. Format & Append Tags (UI String -> Backend Array)
         const tagsArray = productData.tags.split(',')
             .map(tag => tag.trim())
             .filter(tag => tag.length > 0);
         formData.append('tags', JSON.stringify(tagsArray));
 
-        // 3. Append Nested Objects (Must be stringified for FormData)
         formData.append('price', JSON.stringify(productData.price));
         formData.append('metal', JSON.stringify(productData.metal));
         formData.append('dimensions', JSON.stringify(productData.dimensions));
 
-        // Filter out empty stone rows before appending
         const validStones = stones.filter(s => s.type || s.shape || s.weight);
         formData.append('stones', JSON.stringify(validStones));
 
-        // 4. Append Files
         selectedImages.forEach(img => formData.append('images', img.file));
 
         try {
@@ -181,7 +264,6 @@ const AddProduct = () => {
 
     return (
         <div className="pb-20 bg-linear-to-b from-[#f4f0ea] to-[#fafafa] px-6.5 pt-5">
-            {/* Custom Toast */}
             {toast.show && (
                 <div className={`fixed top-10 right-10 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl z-50 animate-bounce
                     ${toast.type === 'success' ? 'bg-[#222222] text-white' : 'bg-red-600 text-white'}`}>
@@ -205,7 +287,6 @@ const AddProduct = () => {
                         <div className="bg-white mt-[16px] rounded-[16px] p-[26px]">
                             <div className="space-y-6">
 
-                                {/* Product Name */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-4">Product Name</label>
                                     <input
@@ -216,7 +297,6 @@ const AddProduct = () => {
                                     />
                                 </div>
 
-                                {/* SKU */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-4">SKU</label>
                                     <input
@@ -231,7 +311,6 @@ const AddProduct = () => {
                                     <input name="stock" value={productData.stock} onChange={handleInputChange} type="number" className="w-full bg-[#F3F3F3] rounded-[8px] px-5 py-3 outline-none text-[12px]" />
                                 </div>
 
-                                {/* Description */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-4">Description</label>
                                     <textarea
@@ -242,7 +321,6 @@ const AddProduct = () => {
                                     ></textarea>
                                 </div>
 
-                                {/* Category & Sub Category Dropdowns */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="relative">
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Category*</label>
@@ -262,7 +340,6 @@ const AddProduct = () => {
                                     </div>
                                 </div>
 
-                                {/* Collection Dropdown */}
                                 <div className="relative">
                                     <label className="text-xs font-bold text-gray-400">COLLECTION</label>
                                     <select name="collectionId" value={productData.collectionId} onChange={handleInputChange} className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-2 outline-none text-[12px] appearance-none">
@@ -272,7 +349,6 @@ const AddProduct = () => {
                                     <ChevronDown size={14} className="absolute right-4 bottom-4 text-gray-400" />
                                 </div>
 
-                                {/* Toggles: New Arrival & Luxe */}
                                 <div className="flex gap-10">
                                     <div>
                                         <p className="text-sm font-medium text-gray-700 mb-3">New Arrival?</p>
@@ -290,40 +366,52 @@ const AddProduct = () => {
 
                             </div>
                         </div>
-
                     </div>
 
-                    {/* Price Distribution */}
+                    {/* UPDATED: Price Distribution Section */}
                     <div className=" mt-8">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-[18px] font-semibold text-[#222222]">Price Distribution</h2>
-                            {/* Currency Selector */}
-                            <select
-                                value={productData.price.currency}
-                                onChange={(e) => handleNestedChange('price', 'currency', e.target.value)}
-                                className="bg-white border border-gray-200 rounded-md px-3 py-1 text-sm outline-none"
-                            >
-                                <option value="USD">USD ($)</option>
-                                <option value="INR">INR (₹)</option>
-                                <option value="EUR">EUR (€)</option>
-                            </select>
+                            <h2 className="text-[18px] font-semibold text-[#222222]">Price Distribution (INR ₹)</h2>
                         </div>
-                        <div className="grid grid-cols-2 gap-6 bg-white rounded-[18px] p-8">
-                            {['basePrice', 'makingCharges', 'tax', 'finalPrice'].map(f => (
-                                <div key={f}>
-                                    <label className="text-xs font-bold text-gray-400 uppercase">{f}</label>
+                        <div className="grid grid-cols-1 gap-6 bg-white rounded-[18px] p-8">
+
+                            {/* Final Price Input */}
+                            <div>
+                                <label className="text-xs font-bold text-gray-400 uppercase">Final Price (₹) - Includes 3% Tax</label>
+                                <input
+                                    type="number"
+                                    value={productData.price.finalPrice}
+                                    onChange={handlePriceChange}
+                                    placeholder="Enter final price..."
+                                    className="w-full bg-[#F3F3F3] rounded-[10px] px-4 py-3 mt-2 outline-none text-[12px]"
+                                />
+                            </div>
+
+                            {/* Disabled Base Price & Tax */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-gray-400 uppercase">Base Price (100%)</label>
                                     <input
-                                        type="number"
-                                        value={productData.price[f]}
-                                        onChange={(e) => handleNestedChange('price', f, e.target.value)}
-                                        className="w-full bg-[#F3F3F3] rounded-[10px] px-4 py-3 mt-2 outline-none text-[12px]"
+                                        type="text"
+                                        disabled
+                                        value={productData.price.basePrice}
+                                        className="w-full bg-gray-100 text-gray-500 rounded-[10px] px-4 py-3 mt-2 outline-none text-[12px] cursor-not-allowed"
                                     />
                                 </div>
-                            ))}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-400 uppercase">Tax (3%)</label>
+                                    <input
+                                        type="text"
+                                        disabled
+                                        value={productData.price.tax}
+                                        className="w-full bg-gray-100 text-gray-500 rounded-[10px] px-4 py-3 mt-2 outline-none text-[12px] cursor-not-allowed"
+                                    />
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
-                    {/* Search Tags */}
                     <div className=" h-fit mt-8">
                         <h2 className="text-[18px] font-semibold text-[#222222] mb-4">Search Tags</h2>
                         <div className='bg-white rounded-[18px] p-8'>
@@ -348,12 +436,77 @@ const AddProduct = () => {
                             </label>
                             <div className="flex flex-wrap gap-4 mt-6">
                                 {selectedImages.map((img, i) => (
-                                    <div key={i} className="relative w-20 h-20 bg-[#FCF6F2] rounded-lg border border-gray-100 flex items-center justify-center">
-                                        <img src={img.url} className="w-[85%] h-[85%] object-contain" alt="preview" />
-                                        <button onClick={() => removeImage(i)} className="absolute -top-2 -right-2 bg-[#B58E58] text-white rounded-full p-1 shadow-md"><X size={10} /></button>
+                                    <div
+                                        key={i}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, i)}
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={(e) => handleDrop(e, i)}
+                                        onClick={() => setCropModal({ isOpen: true, index: i, src: img.originalUrl || img.url })}
+                                        className={`relative w-24 h-24 rounded-lg flex items-center justify-center cursor-move transition-all
+                ${i === 0 ? 'border-2 border-[#B58E58] bg-[#FCF6F2] shadow-md' : 'border border-gray-200 bg-gray-50 hover:bg-gray-100'}`}
+                                    >
+                                        {/* THUMBNAIL HIGHLIGHTER */}
+                                        {i === 0 && (
+                                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#B58E58] text-white text-[9px] px-2 py-0.5 rounded-full font-bold z-10 whitespace-nowrap">
+                                                Main Thumbnail
+                                            </div>
+                                        )}
+
+                                        <img src={img.url} className="w-[85%] h-[85%] object-contain pointer-events-none" alt="preview" />
+
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); removeImage(i); }}
+                                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md z-20 hover:scale-110"
+                                        >
+                                            <X size={10} />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
+
+                            {/* --- CROP MODAL --- */}
+                            {cropModal.isOpen && (
+                                <div className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center p-4">
+                                    <h3 className="text-white font-bold mb-4">Crop Image (Drag to adjust)</h3>
+
+                                    <div className="w-full flex justify-center items-center">
+                                        <ReactCrop
+                                            crop={crop}
+                                            onChange={(_, percentCrop) => setCrop(percentCrop)}
+                                            onComplete={(c) => setCompletedCrop(c)}
+                                            ruleOfThirds
+                                        >
+                                            {/* 
+                  Using inline styles for maxHeight and maxWidth is the only 
+                  guaranteed way to restrict react-image-crop 
+                */}
+                                            <img
+                                                id="crop-source-image"
+                                                src={cropModal.src}
+                                                alt="Crop source"
+                                                style={{ maxHeight: '65vh', maxWidth: '100%', objectFit: 'contain' }}
+                                                className="block mx-auto"
+                                            />
+                                        </ReactCrop>
+                                    </div>
+
+                                    <div className="flex gap-4 mt-6">
+                                        <button
+                                            onClick={() => setCropModal({ isOpen: false, index: null, src: '' })}
+                                            className="px-6 py-2 rounded-lg bg-gray-700 text-white font-semibold hover:bg-gray-600 transition-all"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleSaveCrop}
+                                            className="px-6 py-2 rounded-lg bg-[#B58E58] text-white font-semibold hover:bg-[#9a7645] transition-all flex items-center gap-2"
+                                        >
+                                            {isLoading ? 'Saving...' : 'Apply Crop'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -382,7 +535,6 @@ const AddProduct = () => {
                         </div>
                     </div>
 
-                    {/* Dynamic Stone Details Section */}
                     <div className="bg-white rounded-[18px] p-8 mt-8">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-[18px] font-semibold text-[#222222]">Stone Details</h2>
@@ -431,7 +583,6 @@ const AddProduct = () => {
 
                 </div>
 
-                {/* Final Submit Button */}
                 <div className="col-span-2 mt-2 flex justify-end">
                     <button
                         disabled={isLoading}
