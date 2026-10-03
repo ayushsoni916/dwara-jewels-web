@@ -70,7 +70,7 @@ export default async function LuxeTrendingProducts() {
                 {/* Right Product Grid Area */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {products.map((product) => {
-                        const currency = product.price?.currency === 'USD' ? '$' : '₹';
+                        const currency = product.price?.currency === 'USD' ? '$' : 'Rs. ';
                         const finalPrice = product.price?.finalPrice?.toLocaleString() || "0.00";
                         const imageUrl = product.thumbnail || (product.images && product.images[0]) || '/placeholder.webp';
 

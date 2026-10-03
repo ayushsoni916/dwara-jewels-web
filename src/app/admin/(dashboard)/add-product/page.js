@@ -18,8 +18,8 @@ const AddProduct = () => {
         isNewArrival: false,
         isLuxe: false,
         tags: '',
-        price: { basePrice: '', makingCharges: 0, tax: '', finalPrice: '', currency: 'INR' }, // Default INR, makingCharges 0
-        metal: { type: 'Gold', quality: '', color: '', weight: '' },
+        price: { basePrice: '', makingCharges: 0, compareAtPrice: '', tax: '', finalPrice: '', currency: 'INR' }, // Default INR, makingCharges 0
+        metal: { type: 'Gold', quality: '92.5', color: '', weight: '' },
         dimensions: { width: '', length: '', size: '' }
     });
 
@@ -55,42 +55,106 @@ const AddProduct = () => {
     };
 
     // --- CROP SAVING LOGIC ---
+    // const handleSaveCrop = async () => {
+    //     if (!completedCrop || !completedCrop.width || !completedCrop.height) return;
+    //     setIsLoading(true);
+
+    //     const image = document.getElementById('crop-source-image');
+    //     const canvas = document.createElement('canvas');
+    //     const scaleX = image.naturalWidth / image.width;
+    //     const scaleY = image.naturalHeight / image.height;
+    //     canvas.width = completedCrop.width;
+    //     canvas.height = completedCrop.height;
+    //     const ctx = canvas.getContext('2d');
+
+    //     ctx.drawImage(
+    //         image,
+    //         completedCrop.x * scaleX, completedCrop.y * scaleY,
+    //         completedCrop.width * scaleX, completedCrop.height * scaleY,
+    //         0, 0, completedCrop.width, completedCrop.height
+    //     );
+
+    //     canvas.toBlob((blob) => {
+    //         if (blob) {
+    //             const file = new File([blob], 'cropped-image.webp', { type: 'image/webp' });
+    //             const url = URL.createObjectURL(file);
+    //             const newImages = [...selectedImages];
+    //             newImages[cropModal.index] = {
+    //                 ...newImages[cropModal.index], // <-- ADD THIS: Keeps the originalUrl intact
+    //                 url: url,
+    //                 file: file
+    //             };
+    //             setSelectedImages(newImages);
+    //             setCropModal({ isOpen: false, index: null, src: '' });
+    //         }
+    //         setIsLoading(false);
+    //     }, 'image/webp');
+    // };
+
     const handleSaveCrop = async () => {
-        if (!completedCrop || !completedCrop.width || !completedCrop.height) return;
+        if (!completedCrop?.width || !completedCrop?.height) return;
+
         setIsLoading(true);
 
         const image = document.getElementById('crop-source-image');
         const canvas = document.createElement('canvas');
+
         const scaleX = image.naturalWidth / image.width;
         const scaleY = image.naturalHeight / image.height;
-        canvas.width = completedCrop.width;
-        canvas.height = completedCrop.height;
+
+        // Preserve the original image resolution
+        canvas.width = Math.round(completedCrop.width * scaleX);
+        canvas.height = Math.round(completedCrop.height * scaleY);
+
         const ctx = canvas.getContext('2d');
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
 
         ctx.drawImage(
             image,
-            completedCrop.x * scaleX, completedCrop.y * scaleY,
-            completedCrop.width * scaleX, completedCrop.height * scaleY,
-            0, 0, completedCrop.width, completedCrop.height
+            completedCrop.x * scaleX,
+            completedCrop.y * scaleY,
+            completedCrop.width * scaleX,
+            completedCrop.height * scaleY,
+            0,
+            0,
+            canvas.width,
+            canvas.height
         );
 
-        canvas.toBlob((blob) => {
-            if (blob) {
-                const file = new File([blob], 'cropped-image.webp', { type: 'image/webp' });
-                const url = URL.createObjectURL(file);
-                const newImages = [...selectedImages];
-                newImages[cropModal.index] = {
-                    ...newImages[cropModal.index], // <-- ADD THIS: Keeps the originalUrl intact
-                    url: url,
-                    file: file
-                };
-                setSelectedImages(newImages);
-                setCropModal({ isOpen: false, index: null, src: '' });
-            }
-            setIsLoading(false);
-        }, 'image/webp');
-    };
+        canvas.toBlob(
+            (blob) => {
+                if (blob) {
+                    const file = new File(
+                        [blob],
+                        'cropped-image.webp',
+                        { type: 'image/webp' }
+                    );
 
+                    const url = URL.createObjectURL(file);
+                    const newImages = [...selectedImages];
+
+                    newImages[cropModal.index] = {
+                        ...newImages[cropModal.index],
+                        url,
+                        file
+                    };
+
+                    setSelectedImages(newImages);
+                    setCropModal({
+                        isOpen: false,
+                        index: null,
+                        src: ''
+                    });
+                }
+
+                setIsLoading(false);
+            },
+            'image/webp',
+            1
+        );
+    };
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
         setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
@@ -248,7 +312,7 @@ const AddProduct = () => {
         selectedImages.forEach(img => formData.append('images', img.file));
 
         try {
-            const response = await axios.post('https://dwarajewels.in/api/product', formData, {
+            const response = await axios.post('http://localhost:4500/api/product', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             if (response.data.success) {
@@ -374,6 +438,21 @@ const AddProduct = () => {
                             <h2 className="text-[18px] font-semibold text-[#222222]">Price Distribution (INR ₹)</h2>
                         </div>
                         <div className="grid grid-cols-1 gap-6 bg-white rounded-[18px] p-8">
+                            <div>
+                                <label className="text-xs font-bold text-gray-400 uppercase">
+                                    Original / Cross Price (₹)
+                                </label>
+
+                                <input
+                                    type="number"
+                                    value={productData.price.compareAtPrice}
+                                    onChange={(e) =>
+                                        handleNestedChange('price', 'compareAtPrice', e.target.value)
+                                    }
+                                    placeholder="Enter original price, e.g. 1000"
+                                    className="w-full bg-[#F3F3F3] rounded-[10px] px-4 py-3 mt-2 outline-none text-[12px]"
+                                />
+                            </div>
 
                             {/* Final Price Input */}
                             <div>
@@ -516,7 +595,8 @@ const AddProduct = () => {
                             <div className="relative">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase">Metal Type</label>
                                 <select value={productData.metal.type} onChange={(e) => handleNestedChange('metal', 'type', e.target.value)} className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-1 outline-none text-[12px] appearance-none">
-                                    <option value="Gold">Gold</option><option value="Silver">Silver</option><option value="Platinum">Platinum</option>
+                                    {/* <option value="Gold">Gold</option><option value="Silver">Silver</option><option value="Platinum">Platinum</option> */}
+                                    <option value="Silver">Silver</option>
                                 </select>
                                 <ChevronDown size={14} className="absolute right-4 bottom-4 text-gray-400" />
                             </div>
@@ -524,7 +604,7 @@ const AddProduct = () => {
                                 <div key={f}>
                                     <label className="text-[10px] font-bold text-gray-400 uppercase">{f}</label>
                                     <input
-                                        placeholder={f === 'color' ? 'e.g. Rose Gold' : f === 'quality' ? 'e.g. 18k' : 'in grams'}
+                                        placeholder={f === 'color' ? 'e.g. Rose Gold' : f === 'quality' ? 'e.g. 92.5' : 'in grams'}
                                         value={productData.metal[f]}
                                         onChange={(e) => handleNestedChange('metal', f, e.target.value)}
                                         type={f === 'weight' ? 'number' : 'text'}

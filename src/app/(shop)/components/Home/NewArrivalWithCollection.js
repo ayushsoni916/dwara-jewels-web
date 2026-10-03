@@ -85,7 +85,7 @@ export default async function NewArrivalWithCollection() {
                                 {product.metal?.color} {product.metal?.type} {product.metal?.quality}
                             </p>
                             <p className="text-[#BF8F5F] font-bold text-sm mt-auto">
-                                {product.price?.currency === 'USD' ? '$' : '₹'}
+                                {product.price?.currency === 'USD' ? '$' : 'Rs. '}
                                 {product.price?.finalPrice?.toLocaleString()}
                             </p>
                         </div>

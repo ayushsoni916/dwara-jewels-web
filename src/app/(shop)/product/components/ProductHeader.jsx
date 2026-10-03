@@ -6,17 +6,26 @@ export default function ProductHeader({ product }) {
 
     if (!product) return null;
 
-    const finalPrice = product.price?.finalPrice?.toLocaleString() || "0.00";
-    const currency = product.price?.currency === 'USD' ? '$' : '₹';
-    
+    const finalPriceValue = Number(product.price?.finalPrice || 0);
+    const compareAtPrice = Number(product.price?.compareAtPrice || 0);
+
+    const finalPrice = finalPriceValue.toLocaleString();
+    const currency = product.price?.currency === 'USD' ? '$' : 'Rs. ';
+
+    const hasDiscount = compareAtPrice > finalPriceValue;
+
+    const discountPercentage = hasDiscount
+        ? Math.round(((compareAtPrice - finalPriceValue) / compareAtPrice) * 100)
+        : 0;
+
     // Removed the hardcoded fallback
-    const collectionName = product.collection?.name || product.category?.name; 
+    const collectionName = product.collection?.name || product.category?.name;
     const isInStock = product.stock > 0;
 
     const increaseQty = () => {
         if (quantity < product.stock) setQuantity(prev => prev + 1);
     };
-    
+
     const decreaseQty = () => {
         if (quantity > 1) setQuantity(prev => prev - 1);
     };
@@ -27,10 +36,24 @@ export default function ProductHeader({ product }) {
             <h1 className="text-[#222222] font-serif text-4xl lg:text-5xl leading-tight mb-4">
                 {product.title}
             </h1>
-            <p className="text-[#222222] font-serif text-[28px] mb-8">
-                {currency}{finalPrice}
+            <p className="text-[#222222] font-serif text-[28px] mb-8 flex items-center gap-3">
+                {hasDiscount && (
+                    <span className="text-gray-400 text-xl line-through">
+                        {currency}{compareAtPrice.toLocaleString()}
+                    </span>
+                )}
+
+                <span>
+                    {currency}{finalPrice}
+                </span>
+
+                {hasDiscount && (
+                    <span className="text-[#BF8F5F] font-sans font-bold text-sm">
+                        {discountPercentage}% OFF
+                    </span>
+                )}
             </p>
-            
+
             {/* Meta: Collection, Reviews */}
             <div className="flex flex-wrap items-center gap-3 mb-8 text-[11px] sm:text-xs">
                 {/* Only render this block if collectionName exists */}
@@ -42,7 +65,7 @@ export default function ProductHeader({ product }) {
                         <span className="text-[#BF8F5F]">|</span>
                     </>
                 )}
-                
+
                 <div className="flex items-center text-[#FFC107]">
                     {[...Array(5)].map((_, i) => (
                         <svg key={i} className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -81,11 +104,7 @@ export default function ProductHeader({ product }) {
 
             {/* Stock Status */}
             <div className="mt-5 text-xs font-bold tracking-wider">
-                {isInStock ? (
-                    <span className="text-green-600">IN STOCK ({product.stock})</span>
-                ) : (
-                    <span className="text-red-500">OUT OF STOCK</span>
-                )}
+                {!isInStock && (<span className="text-red-500">OUT OF STOCK</span>)}
             </div>
 
         </div>

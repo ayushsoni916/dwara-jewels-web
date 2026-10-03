@@ -60,7 +60,7 @@ export default async function LuxeNewArrivalsSection() {
                     {/* 3x2 Product Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {products.slice(0, 6).map((product) => {
-                            const currency = product.price?.currency === 'USD' ? '$' : '₹';
+                            const currency = product.price?.currency === 'USD' ? '$' : 'Rs. ';
                             const finalPrice = product.price?.finalPrice?.toLocaleString() || "0.00";
                             const imageUrl = product.thumbnail || (product.images && product.images[0]) || '/placeholder.webp';
 

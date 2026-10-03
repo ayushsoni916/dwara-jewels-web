@@ -154,7 +154,7 @@ export default async function CategoryPage({ searchParams }) {
                                 </div>
 
                                 <p className="title-main font-bold mt-2 lg:mt-[15px] text-sm lg:text-base">
-                                    {product.price?.currency === 'USD' ? '$' : '₹'}{product.price?.finalPrice?.toLocaleString()}
+                                    {product.price?.currency === 'USD' ? '$' : 'Rs. '}{product.price?.finalPrice?.toLocaleString()}
                                 </p>
                             </div>
                         ))}

@@ -278,7 +278,7 @@ const ProductPage = () => {
                                 </td>
                                 
                                 <td className="px-6 py-4 text-sm font-bold text-[#222222]">
-                                    {item.price?.currency === 'USD' ? '$' : '₹'}
+                                    {item.price?.currency === 'USD' ? '$' : 'Rs. '}
                                     {item.price?.finalPrice?.toLocaleString()}
                                 </td>
                                 

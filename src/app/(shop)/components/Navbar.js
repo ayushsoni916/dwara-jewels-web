@@ -67,7 +67,7 @@ export default function Navbar() {
 
             try {
                 // Fetching from your local backend API
-                const res = await fetch(`https://dwarajewels.in/api/product?search=${encodeURIComponent(searchQuery)}&limit=4`);
+                const res = await fetch(`http://localhost:4500/api/product?search=${encodeURIComponent(searchQuery)}&limit=4`);
                 const data = await res.json();
 
                 if (data.success) {
@@ -198,7 +198,7 @@ export default function Navbar() {
                                                         {product.title}
                                                     </span>
                                                     <span className="font-serif text-[13px] text-[#BF8F5F]">
-                                                        ${product.price?.finalPrice}
+                                                        Rs. {product.price?.finalPrice}
                                                     </span>
                                                 </div>
                                             </Link>

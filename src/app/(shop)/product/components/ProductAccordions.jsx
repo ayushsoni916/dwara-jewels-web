@@ -16,7 +16,7 @@ export default function ProductAccordions({ product }) {
         setOpenAccordions(prev => ({ ...prev, [section]: !prev[section] }));
     };
 
-    const currency = product.price?.currency === 'USD' ? '$' : '₹';
+    const currency = product.price?.currency === 'USD' ? '$' : 'Rs. ';
     
     // Calculate total carats dynamically 
     const totalCarats = product.stones?.reduce((sum, stone) => sum + (stone.weight || 0), 0);
@@ -136,16 +136,16 @@ export default function ProductAccordions({ product }) {
                 </button>
                 <div className={`overflow-hidden transition-all duration-300 ${openAccordions.price ? 'max-h-96 opacity-100 pb-6' : 'max-h-0 opacity-0'}`}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8 text-[13px]">
-                        {product.price?.basePrice !== undefined && (
+                        {Number(product.price?.basePrice) > 0 && (
                             <p><span className="text-[#BF8F5F] font-bold tracking-widest mr-2">BASE PRICE:</span> <span className="text-[#222222]">{currency}{product.price.basePrice}</span></p>
                         )}
-                        {product.price?.makingCharges !== undefined && (
+                        {Number(product.price?.makingCharges) > 0 && (
                             <p><span className="text-[#BF8F5F] font-bold tracking-widest mr-2">MAKING:</span> <span className="text-[#222222]">{currency}{product.price.makingCharges}</span></p>
                         )}
-                        {product.price?.tax !== undefined && (
+                        {Number(product.price?.tax) > 0 && (
                             <p><span className="text-[#BF8F5F] font-bold tracking-widest mr-2">TAX:</span> <span className="text-[#222222]">{currency}{product.price.tax}</span></p>
                         )}
-                        {product.price?.finalPrice !== undefined && (
+                        {Number(product.price?.finalPrice) > 0 && (
                             <p><span className="text-[#BF8F5F] font-bold tracking-widest mr-2">FINAL PRICE:</span> <span className="text-[#222222] font-bold">{currency}{product.price.finalPrice}</span></p>
                         )}
                     </div>

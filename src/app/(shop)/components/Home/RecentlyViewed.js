@@ -57,7 +57,7 @@ export default function RecentlyViewed() {
                 {/* Product Grid Area */}
                 <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                     {recentProducts.map((product) => {
-                        const currency = product.price?.currency === 'USD' ? '$' : '₹';
+                        const currency = product.price?.currency === 'USD' ? '$' : 'Rs. ';
                         const finalPrice = product.price?.finalPrice ? `${currency}${product.price.finalPrice.toLocaleString()}` : '—';
                         const metalText = product.metal ? `${product.metal.color || ''} ${product.metal.type || ''} ${product.metal.quality || ''}`.trim() : '';
 

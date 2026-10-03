@@ -16,7 +16,7 @@ export default function LuxeProductAccordions({ product }) {
         setOpenAccordions(prev => ({ ...prev, [section]: !prev[section] }));
     };
 
-    const currency = product.price?.currency === 'USD' ? '$' : '₹';
+    const currency = product.price?.currency === 'USD' ? '$' : 'Rs. ';
     
     const totalCarats = product.stones?.reduce((sum, stone) => sum + (stone.weight || 0), 0);
     

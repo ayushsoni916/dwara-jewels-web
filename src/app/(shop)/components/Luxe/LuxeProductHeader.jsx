@@ -7,7 +7,7 @@ export default function LuxeProductHeader({ product }) {
     if (!product) return null;
 
     const finalPrice = product.price?.finalPrice?.toLocaleString() || "0.00";
-    const currency = product.price?.currency === 'USD' ? '$' : '₹';
+    const currency = product.price?.currency === 'USD' ? '$' : 'Rs. ';
     
     const collectionName = product.collection?.name || product.category?.name; 
     const isInStock = product.stock > 0;
