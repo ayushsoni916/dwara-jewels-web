@@ -14,13 +14,12 @@ const AddProduct = () => {
         category: '',
         subCategory: '',
         collectionId: '',
-        stock: 0,
         isNewArrival: false,
         isLuxe: false,
         tags: '',
         price: { basePrice: '', makingCharges: 0, compareAtPrice: '', tax: '', finalPrice: '', currency: 'INR' }, // Default INR, makingCharges 0
         metal: { type: 'Gold', quality: '92.5', color: '', weight: '' },
-        dimensions: { width: '', length: '', size: '' }
+        dimensions: [{ width: '', length: '', size: '', stock: 0 }]
     });
 
     const [stones, setStones] = useState([
@@ -52,6 +51,34 @@ const AddProduct = () => {
 
         setSelectedImages(newImages);
         setDraggedIndex(null);
+    };
+
+    const handleDimensionChange = (index, field, value) => {
+        setProductData(prev => ({
+            ...prev,
+            dimensions: prev.dimensions.map((dimension, i) =>
+                i === index ? { ...dimension, [field]: value } : dimension
+            )
+        }));
+    };
+
+    const addDimension = () => {
+        setProductData(prev => ({
+            ...prev,
+            dimensions: [
+                ...prev.dimensions,
+                { width: '', length: '', size: '', stock: 0 }
+            ]
+        }));
+    };
+
+    const removeDimension = (index) => {
+        setProductData(prev => ({
+            ...prev,
+            dimensions: prev.dimensions.length > 1
+                ? prev.dimensions.filter((_, i) => i !== index)
+                : prev.dimensions
+        }));
     };
 
     // --- CROP SAVING LOGIC ---
@@ -275,6 +302,13 @@ const AddProduct = () => {
         if (!productData.category) return "Please select a Category";
         if (!productData.price.finalPrice) return "Final Price is required";
         if (selectedImages.length === 0) return "At least one image is required";
+        if (productData.dimensions.some(dimension =>
+            String(dimension.stock ?? '').trim() === '' ||
+            !Number.isInteger(Number(dimension.stock)) ||
+            Number(dimension.stock) < 0
+        )) {
+            return "Each dimension needs a non-negative whole-number stock";
+        }
         return null;
     };
 
@@ -293,7 +327,7 @@ const AddProduct = () => {
         if (productData.collectionId) {
             formData.append('collection', productData.collectionId);
         }
-        formData.append('stock', productData.stock);
+        // formData.append('stock', productData.stock);
         formData.append('isNewArrival', productData.isNewArrival);
         formData.append('isLuxe', productData.isLuxe);
 
@@ -304,7 +338,12 @@ const AddProduct = () => {
 
         formData.append('price', JSON.stringify(productData.price));
         formData.append('metal', JSON.stringify(productData.metal));
-        formData.append('dimensions', JSON.stringify(productData.dimensions));
+        formData.append('dimensions', JSON.stringify(
+            productData.dimensions.map(dimension => ({
+                ...dimension,
+                stock: Number(dimension.stock)
+            }))
+        ));
 
         const validStones = stones.filter(s => s.type || s.shape || s.weight);
         formData.append('stones', JSON.stringify(validStones));
@@ -370,10 +409,10 @@ const AddProduct = () => {
                                         className="w-full bg-[#F3F3F3] rounded-[8px] px-5 py-3 outline-none focus:ring-1 focus:ring-[#B58E58] text-[12px]"
                                     />
                                 </div>
-                                <div>
+                                {/* <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Stock Quantity</label>
                                     <input name="stock" value={productData.stock} onChange={handleInputChange} type="number" className="w-full bg-[#F3F3F3] rounded-[8px] px-5 py-3 outline-none text-[12px]" />
-                                </div>
+                                </div> */}
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-4">Description</label>
@@ -644,18 +683,62 @@ const AddProduct = () => {
                     </div>
 
                     <div className="bg-white rounded-[18px] p-8 mt-8">
-                        <h2 className="text-[18px] font-semibold text-[#222222] mb-6">Dimensions</h2>
-                        <div className="grid grid-cols-3 gap-3">
-                            {['width', 'length', 'size'].map(f => (
-                                <div key={f}>
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase">{f}</label>
-                                    <input
-                                        value={productData.dimensions[f]}
-                                        onChange={(e) => handleNestedChange('dimensions', f, e.target.value)}
-                                        type="text"
-                                        placeholder={f === 'size' ? 'e.g. 7' : 'e.g. 0.5 in'}
-                                        className="w-full bg-[#F3F3F3] rounded-[8px] px-3 py-2 mt-1 outline-none text-[12px]"
-                                    />
+                        <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+                            <h2 className="text-[18px] font-semibold text-[#222222]">
+                                Dimensions
+                            </h2>
+
+                            <button
+                                type="button"
+                                onClick={addDimension}
+                                className="text-[#B58E58] font-bold text-sm flex items-center gap-1 hover:underline"
+                            >
+                                <Plus size={14} /> Add Dimension
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {productData.dimensions.map((dimension, index) => (
+                                <div
+                                    key={index}
+                                    className="relative grid grid-cols-2 xl:grid-cols-4 gap-3 border border-gray-100 rounded-xl p-4"
+                                >
+                                    {['width', 'length', 'size', 'stock'].map(field => (
+                                        <div key={field}>
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase">
+                                                {field}
+                                            </label>
+
+                                            <input
+                                                value={dimension[field]}
+                                                onChange={(e) =>
+                                                    handleDimensionChange(index, field, e.target.value)
+                                                }
+                                                type={field === 'stock' ? 'number' : 'text'}
+                                                min={field === 'stock' ? 0 : undefined}
+                                                step={field === 'stock' ? 1 : undefined}
+                                                placeholder={
+                                                    field === 'stock'
+                                                        ? 'Quantity'
+                                                        : field === 'size'
+                                                            ? 'e.g. 7'
+                                                            : 'e.g. 0.5 in'
+                                                }
+                                                className="w-full bg-[#F3F3F3] rounded-[8px] px-3 py-2 mt-1 outline-none text-[12px]"
+                                            />
+                                        </div>
+                                    ))}
+
+                                    {productData.dimensions.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeDimension(index)}
+                                            aria-label={`Remove dimension ${index + 1}`}
+                                            className="absolute -top-2 -right-2 text-red-500 bg-white shadow-sm rounded-full p-1 border border-gray-100"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </div>

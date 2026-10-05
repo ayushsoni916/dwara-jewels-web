@@ -4,17 +4,26 @@ import { Search, ChevronDown, Eye, Edit3, Trash2, Plus, Calendar, Layers, Folder
 import Link from 'next/link';
 import axios from 'axios';
 
+const getTotalStock = (product) =>
+    product.totalStock ??
+    (Array.isArray(product.dimensions)
+        ? product.dimensions.reduce(
+            (total, option) => total + Number(option.stock ?? 0),
+            0
+        )
+        : 0);
+
 const ProductPage = () => {
     // --- State Management ---
     const [filterMode, setFilterMode] = useState('category'); // 'category' | 'collection' | 'newArrival'
     const [isLuxeView, setIsLuxeView] = useState(false);
-    
+
     const [categories, setCategories] = useState([]);
     const [collections, setCollections] = useState([]);
-    
+
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [selectedCollection, setSelectedCollection] = useState(null);
-    
+
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -39,7 +48,7 @@ const ProductPage = () => {
     const loadCategories = async () => {
         try {
             const type = isLuxeView ? 'luxury' : 'normal';
-            const data = await fetchCategoryApi(type); 
+            const data = await fetchCategoryApi(type);
             if (data.success) {
                 setCategories(data.categories);
                 if (data.categories.length > 0) {
@@ -80,7 +89,7 @@ const ProductPage = () => {
             setProducts([]);
             return;
         }
-        
+
         setLoading(true);
         try {
             // Build dynamic params based strictly on the ACTIVE filter mode
@@ -99,7 +108,7 @@ const ProductPage = () => {
     };
 
     // --- Effects ---
-    
+
     // 1. Initial Load for Collections
     useEffect(() => {
         loadCollections();
@@ -159,7 +168,7 @@ const ProductPage = () => {
                             </button>
                         </div>
                     )}
-                    
+
                     {/* MASTER SWITCH: Category vs Collection vs New Arrivals */}
                     <div className="flex bg-white rounded-xl p-1 shadow-sm border border-gray-100">
                         <button
@@ -194,7 +203,7 @@ const ProductPage = () => {
                     <Search className="absolute left-3 top-3 text-gray-400" size={18} />
                     <input type="text" placeholder="Search by Title or SKU..." className="w-full bg-white border border-gray-100 rounded-xl pl-10 pr-4 py-2.5 outline-none text-sm shadow-sm focus:border-[#B58E58]" />
                 </div>
-                
+
                 <div className="relative">
                     <select className="appearance-none bg-white border border-gray-100 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none shadow-sm cursor-pointer min-w-[140px]">
                         <option>Status : All</option>
@@ -203,7 +212,7 @@ const ProductPage = () => {
                     </select>
                     <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
                 </div>
-                
+
                 <div className="relative">
                     <div className="bg-white border border-gray-100 rounded-xl px-4 py-2.5 flex items-center gap-2 text-sm text-gray-500 shadow-sm cursor-pointer hover:bg-gray-50 transition-all">
                         <Calendar size={16} /> Filter by date range <ChevronDown size={14} />
@@ -272,34 +281,45 @@ const ProductPage = () => {
                                         </div>
                                     </div>
                                 </td>
-                                
+
                                 <td className="px-6 py-4 text-xs font-medium text-gray-600">
                                     {getCollectionName(item.collection)}
                                 </td>
-                                
+
                                 <td className="px-6 py-4 text-sm font-bold text-[#222222]">
                                     {item.price?.currency === 'USD' ? '$' : 'Rs. '}
                                     {item.price?.finalPrice?.toLocaleString()}
                                 </td>
-                                
+
                                 <td className="px-6 py-4 text-xs text-gray-500 capitalize">
                                     {item.metal?.color} {item.metal?.type} {item.metal?.quality}
                                 </td>
-                                
+
                                 <td className="px-6 py-4 text-xs text-gray-500 font-mono">
                                     {item.sku}
                                 </td>
-                                
+
                                 <td className="px-6 py-4 text-xs text-gray-500">
                                     {new Date(item.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 </td>
-                                
+
                                 <td className="px-6 py-4">
-                                    <span className={`text-[11px] font-bold px-3 py-1 rounded-full ${item.stock > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                                        {item.stock > 0 ? `${item.stock} in stock` : 'Out of stock'}
-                                    </span>
+                                  
+
+                                    <td className="px-6 py-4">
+                                        <span
+                                            className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold ${getTotalStock(item) > 0
+                                                    ? 'bg-green-50 text-green-600'
+                                                    : 'bg-red-50 text-red-600'
+                                                }`}
+                                        >
+                                            {getTotalStock(item) > 0
+                                                ? `${getTotalStock(item)} in stock`
+                                                : 'Out of stock'}
+                                        </span>
+                                    </td>
                                 </td>
-                                
+
                                 <td className="px-6 py-4">
                                     <div className="flex justify-center gap-3">
                                         <button className="text-gray-400 hover:text-[#B58E58] transition-all" title="View"><Eye size={18} /></button>
@@ -309,7 +329,7 @@ const ProductPage = () => {
                                 </td>
                             </tr>
                         ))}
-                        
+
                         {!loading && products.length === 0 && (
                             <tr>
                                 <td colSpan="8" className="text-center py-20 text-gray-400 text-sm">
