@@ -10,7 +10,7 @@ export default function Hero() {
       */}
             <div className="relative w-full">
                 <Image
-                    src="/images/HeroMain.webp" // Use WebP for better SEO scores
+                    src="/images/HeroMain-v3.webp" // Use WebP for better SEO scores
                     alt="Dwara Jewels Shining Winter 2024 - Premium Jewelry Collection"
                     width={1920} // Use the actual width of your original file
                     height={1080} // Use the actual height of your original file

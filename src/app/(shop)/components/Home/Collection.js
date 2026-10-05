@@ -2,8 +2,8 @@ import Link from "next/link";
 
 const Collection = () => {
     const img1 = "/images/LuxuryBanner.webp";
-    const img2 = "/images/collection2.webp";
-    const img3 = "/images/collection3.webp";
+    const img2 = "/images/GiftForHerWeb.webp";
+    const img3 = "/images/GiftForHimWeb.webp";
 
     return (
         <section className="horizontal-padding mt-16 md:mt-24 lg:mt-[150px]">
