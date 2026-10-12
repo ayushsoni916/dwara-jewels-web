@@ -12,11 +12,13 @@
     "axios": "^1.15.0",
     "browser-image-compression": "^2.0.2",
     "heic2any": "^0.0.4",
+    "iron-session": "^8.0.4",
     "lucide-react": "^1.8.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-image-crop": "^11.1.2"
+    "react-image-crop": "^11.1.2",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

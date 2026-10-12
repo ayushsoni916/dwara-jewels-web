@@ -1,8 +1,11 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+
+import {
+    fetchAllCategoriesApi,
+    saveCategoryApi,
+} from '../../../api/categoryApi';
 import { Plus, X, Image as ImageIcon, Star, Crown, Loader2, Edit2, Trash2 } from 'lucide-react';
-// import imageCompression from 'browser-image-compression';
-// import heic2any from "heic2any";
 
 const CategoryManagement = () => {
     // State management
@@ -19,14 +22,36 @@ const CategoryManagement = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '' });
 
+    const [editingId, setEditingId] = useState(null);
+    const [listLoading, setListLoading] = useState(true);
+    const [listError, setListError] = useState('');
+
+    const saveLock = useRef(false);
+    const listRequest = useRef(0);
+
+    const isEdit = Boolean(editingId);
+
     // --- 1. Fetch Categories on Load ---
     const fetchCategories = async () => {
+        const requestId = ++listRequest.current;
+
+        setListLoading(true);
+        setListError('');
+
         try {
-            const res = await fetch('https://dwarajewels.in/api/category');
-            const data = await res.json();
-            if (data.success) setCategories(data.categories);
-        } catch (err) {
-            console.error("Failed to fetch categories", err);
+            const data = await fetchAllCategoriesApi();
+
+            if (requestId !== listRequest.current) return;
+
+            setCategories(data.categories);
+        } catch (error) {
+            if (requestId === listRequest.current) {
+                setListError(error.data?.error || error.message);
+            }
+        } finally {
+            if (requestId === listRequest.current) {
+                setListLoading(false);
+            }
         }
     };
 
@@ -34,53 +59,33 @@ const CategoryManagement = () => {
         fetchCategories();
     }, []);
 
+    useEffect(() => {
+        const url = categoryImage?.url;
+
+        return () => {
+            if (url?.startsWith('blob:')) {
+                URL.revokeObjectURL(url);
+            }
+        };
+    }, [categoryImage?.url]);
+
     // --- 2. Toast Handler ---
     const showToast = (msg) => {
         setToast({ show: true, message: msg });
         setTimeout(() => setToast({ show: false, message: '' }), 3000);
     };
 
-    // --- Image Handling Logic ---
-    // const handleImageUpload = async (e) => {
-    //     const file = e.target.files[0];
-    //     if (!file) return;
 
-    //     setIsConverting(true);
-    //     const options = {
-    //         maxSizeMB: 1,
-    //         maxWidthOrHeight: 1920,
-    //         useWebWorker: true,
-    //         fileType: "image/webp"
-    //     };
-
-    //     try {
-    //         let fileToCompress = file;
-    //         const isHEIC = file.type === "image/heic" || file.name.toLowerCase().endsWith(".heic");
-
-    //         if (isHEIC) {
-    //             const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg" });
-    //             const safeBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
-    //             fileToCompress = new File([safeBlob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
-    //         }
-
-    //         const compressedFile = await imageCompression(fileToCompress, options);
-    //         const finalWebpName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
-    //         const webpBlob = new File([compressedFile], finalWebpName, { type: "image/webp" });
-
-    //         setCategoryImage({
-    //             url: URL.createObjectURL(webpBlob),
-    //             file: webpBlob
-    //         });
-    //     } catch (error) {
-    //         console.error("Conversion failed:", error);
-    //     } finally {
-    //         setIsConverting(false);
-    //     }
-    // };
     // --- Image Handling Logic ---
     const handleImageUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const input = e.target;
+        const file = input.files?.[0];
+
+        input.value = '';
+
+        if (!file || isLoading || isConverting) return;
+
+        setIsConverting(true);
 
         setIsConverting(true);
         const options = {
@@ -114,6 +119,7 @@ const CategoryManagement = () => {
             });
         } catch (error) {
             console.error("Conversion failed:", error);
+            showToast('Image conversion failed. Please choose another image.');
         } finally {
             setIsConverting(false);
         }
@@ -137,38 +143,107 @@ const CategoryManagement = () => {
     };
 
     const handleSubmit = async () => {
-        if (!categoryName || !categoryImage) return alert("Name and Image are required");
+        if (saveLock.current || isLoading || isConverting) return;
+
+        if (!categoryName.trim()) {
+            return showToast('Category name is required');
+        }
+
+        if (
+            !categoryImage?.url ||
+            (!editingId && !categoryImage.file)
+        ) {
+            return showToast('Category image is required');
+        }
+
+        saveLock.current = true;
         setIsLoading(true);
 
-        const formData = new FormData();
-        formData.append('name', categoryName);
-        formData.append('image', categoryImage.file); // The WebP file blob
-        formData.append('subCategories', subCategories.join(','));
-        formData.append('isFeatured', isFeatured);
-        formData.append('isLuxeCategory', isLuxury);
-
         try {
-            const response = await fetch('https://dwarajewels.in/api/category', {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await response.json();
-            if (data.success) {
-                showToast("Category Created Successfully!");
-                // Reset Form
-                setCategoryName('');
-                setSubCategories(['']);
-                setCategoryImage(null);
-                setIsFeatured(false);
-                setIsLuxury(false);
-                // Refresh List
-                fetchCategories();
+            const formData = new FormData();
+
+            formData.append('name', categoryName.trim());
+
+            formData.append(
+                'subCategories',
+                subCategories
+                    .map(value => value.trim())
+                    .filter(Boolean)
+                    .join(',')
+            );
+
+            formData.append('isFeatured', String(isFeatured));
+            formData.append('isLuxeCategory', String(isLuxury));
+
+            // Only send an image when a new file was selected.
+            if (categoryImage.file) {
+                formData.append('image', categoryImage.file);
             }
+
+            const data = await saveCategoryApi(
+                formData,
+                editingId || undefined
+            );
+
+            console.log('Category save:', {
+                categoryId: editingId,
+                sentName: formData.get('name'),
+                response: data,
+            });
+
+            showToast(
+                editingId
+                    ? 'Category Updated Successfully!'
+                    : 'Category Created Successfully!'
+            );
+
+            resetForm();
+            await fetchCategories();
         } catch (error) {
-            console.error(error);
+            showToast(
+                error.data?.error ||
+                error.message ||
+                'Unable to save category'
+            );
         } finally {
+            saveLock.current = false;
             setIsLoading(false);
         }
+    };
+
+    const resetForm = () => {
+        setEditingId(null);
+        setCategoryName('');
+        setSubCategories(['']);
+        setCategoryImage(null);
+        setIsFeatured(false);
+        setIsLuxury(false);
+    };
+
+    const handleEdit = category => {
+        if (saveLock.current || isLoading || isConverting) return;
+
+        const imageUrl = typeof category.image === 'string'
+            ? category.image
+            : category.image?.url;
+
+        setEditingId(category._id);
+        setCategoryName(category.name || '');
+        setSubCategories(
+            category.subCategories?.length
+                ? [...category.subCategories]
+                : ['']
+        );
+        setIsFeatured(Boolean(category.isFeatured));
+        setIsLuxury(Boolean(category.isLuxeCategory));
+
+        setCategoryImage(
+            imageUrl
+                ? { url: imageUrl, file: null }
+                : null
+        );
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     return (
@@ -181,7 +256,10 @@ const CategoryManagement = () => {
             )}
             <h1 className="text-[#222222] text-[24px] font-bold">Category Management</h1>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-[63px] mt-[30px]">
+            <fieldset
+                disabled={isLoading || isConverting}
+                className="grid grid-cols-1 lg:grid-cols-2 gap-[63px] mt-[30px] min-w-0 border-0 p-0"
+            >
 
                 {/* LEFT COLUMN: Basic Info & Sub Categories */}
                 <div className="space-y-8">
@@ -295,21 +373,59 @@ const CategoryManagement = () => {
                             )}
                         </div>
 
+                        {categoryImage && (
+                            <label className="mt-4 inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#B58E58] hover:underline">
+                                <ImageIcon size={16} />
+                                Change Image
+
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={isLoading || isConverting}
+                                    onChange={handleImageUpload}
+                                />
+                            </label>
+                        )}
+
                         <button
-                            disabled={isLoading}
-                            className={`w-full mt-8 text-white py-4 rounded-[15px] font-bold shadow-lg transition-all flex items-center justify-center gap-2 
-                            ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#B58E58] hover:bg-[#9a7645]'}`}
+                            type="button"
+                            disabled={isLoading || isConverting}
                             onClick={handleSubmit}
+                            className={`w-full mt-8 text-white py-4 rounded-[15px] font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${isLoading || isConverting
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-[#B58E58] hover:bg-[#9a7645]'
+                                }`}
                         >
-                            {isLoading ? <Loader2 className="animate-spin" size={20} /> : null}
-                            {isLoading ? 'Creating...' : 'Create Category'}
+                            {isLoading && (
+                                <Loader2 className="animate-spin" size={20} />
+                            )}
+
+                            {isLoading
+                                ? isEdit
+                                    ? 'Updating...'
+                                    : 'Creating...'
+                                : isEdit
+                                    ? 'Update Category'
+                                    : 'Create Category'}
                         </button>
+
+                        {isEdit && (
+                            <button
+                                type="button"
+                                disabled={isLoading || isConverting}
+                                onClick={resetForm}
+                                className="w-full mt-3 py-2 text-sm font-medium text-gray-500 hover:text-[#B58E58] transition-colors"
+                            >
+                                Cancel Edit
+                            </button>
+                        )}
                     </div>
                 </div>
 
+            </fieldset>
 
-
-            </div>
+            {/* </div> */}
             <div className="mt-[60px]">
                 <h2 className="text-[18px] font-semibold text-[#222222] mb-6">Available Categories</h2>
                 <div className="bg-white rounded-[16px] overflow-hidden shadow-sm border border-gray-50">
@@ -324,7 +440,30 @@ const CategoryManagement = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {categories.map((cat) => (
+                            {listLoading && (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-400">
+                                        Loading categories...
+                                    </td>
+                                </tr>
+                            )}
+
+                            {!listLoading && listError && (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-red-500">
+                                        {listError}
+                                    </td>
+                                </tr>
+                            )}
+
+                            {!listLoading && !listError && categories.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-400">
+                                        No categories found.
+                                    </td>
+                                </tr>
+                            )}
+                            {!listLoading && !listError && categories.map(cat => (
                                 <tr key={cat._id} className="hover:bg-gray-50 transition-colors group">
                                     <td className="px-6 py-4">
                                         <img
@@ -346,8 +485,16 @@ const CategoryManagement = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="text-blue-500 hover:text-blue-700"><Edit2 size={16} /></button>
-                                            <button className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleEdit(cat)}
+                                                disabled={isLoading || isConverting}
+                                                title="Edit category"
+                                                aria-label={`Edit ${cat.name}`}
+                                                className="text-blue-500 hover:text-blue-700 disabled:opacity-40"
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -356,7 +503,7 @@ const CategoryManagement = () => {
                     </table>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

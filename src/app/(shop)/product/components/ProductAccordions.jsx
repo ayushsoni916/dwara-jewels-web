@@ -1,7 +1,10 @@
 'use client';
 import { useState } from "react";
 
-export default function ProductAccordions({ product }) {
+export default function ProductAccordions({
+    product,
+    selectedDimension,
+}) {
     const [openAccordions, setOpenAccordions] = useState({
         description: false,
         details: true,
@@ -17,18 +20,18 @@ export default function ProductAccordions({ product }) {
     };
 
     const currency = product.price?.currency === 'USD' ? '$' : 'Rs. ';
-    
+
     // Calculate total carats dynamically 
     const totalCarats = product.stones?.reduce((sum, stone) => sum + (stone.weight || 0), 0);
-    
+
     // Format Materials string. If undefined, it will evaluate to a falsy empty string.
-    const materialStr = product.metal?.type 
-        ? `${product.metal.color ? product.metal.color + ' ' : ''}${product.metal.type}`.trim() 
+    const materialStr = product.metal?.type
+        ? `${product.metal.color ? product.metal.color + ' ' : ''}${product.metal.type}`.trim()
         : null;
 
     const ChevronIcon = ({ isOpen }) => (
-        <svg 
-            className={`w-5 h-5 text-[#BF8F5F] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} 
+        <svg
+            className={`w-5 h-5 text-[#BF8F5F] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 9l-7 7-7-7" />
@@ -37,7 +40,7 @@ export default function ProductAccordions({ product }) {
 
     return (
         <div className="flex flex-col">
-            
+
             {/* 1. Description */}
             {product.description && (
                 <div className="border-b border-gray-100">
@@ -59,14 +62,25 @@ export default function ProductAccordions({ product }) {
                 </button>
                 <div className={`overflow-hidden transition-all duration-300 ${openAccordions.details ? 'max-h-96 opacity-100 pb-6 pt-2' : 'max-h-0 opacity-0'}`}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8 text-[13px]">
-                        
+
                         {/* Left Column - Only renders items that exist */}
                         <div className="space-y-4">
-                            {product.dimensions?.width && (
-                                <p><span className="text-[#BF8F5F] font-bold tracking-widest mr-2">WIDTH:</span> <span className="text-[#222222]">{product.dimensions.width}</span></p>
-                            )}
-                            {product.dimensions?.length && (
-                                <p><span className="text-[#BF8F5F] font-bold tracking-widest mr-2">LENGTH:</span> <span className="text-[#222222]">{product.dimensions.length}</span></p>
+                            {[
+                                ['SIZE', selectedDimension?.size],
+                                ['WIDTH', selectedDimension?.width],
+                                ['LENGTH', selectedDimension?.length],
+                            ].map(([label, value]) =>
+                                value?.trim() ? (
+                                    <p key={label}>
+                                        <span className="text-[#BF8F5F] font-bold tracking-widest mr-2">
+                                            {label}:
+                                        </span>
+
+                                        <span className="text-[#222222]">
+                                            {value}
+                                        </span>
+                                    </p>
+                                ) : null
                             )}
                             {product.sku && (
                                 <p><span className="text-[#BF8F5F] font-bold tracking-widest mr-2">NUMBER:</span> <span className="text-[#222222]">{product.sku}</span></p>
@@ -114,7 +128,7 @@ export default function ProductAccordions({ product }) {
                                 <li key={idx} className="flex flex-col gap-1 border-b border-gray-50 pb-3 last:border-0">
                                     <span className="font-bold capitalize">
                                         {stone.type || 'Stone'} {stone.count ? `(x${stone.count})` : ''}
-                                    </span> 
+                                    </span>
                                     <div className="flex flex-wrap gap-x-6 gap-y-1">
                                         {stone.shape && <span><strong className="text-gray-500 font-normal">Shape:</strong> {stone.shape}</span>}
                                         {stone.color && <span><strong className="text-gray-500 font-normal">Color:</strong> {stone.color}</span>}

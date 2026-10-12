@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import LogoutModal from './LogoutModal';
 import LoginModal from './LoginModal';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../../../context/AuthContext';
 
 // Subcategories data
 // Hardcoded core categories with their actual database IDs
@@ -24,7 +26,7 @@ const navCategories = [
         subcategories: ['Engagement', 'Solitaire', 'Bands', 'Cocktail']
     },
     {
-        id: '69bbb14e0685b07e948ae4a6', 
+        id: '69bbb14e0685b07e948ae4a6',
         name: 'Bracelets',
         subcategories: ['Chain', 'Bangle', 'Cuff']
     }
@@ -43,14 +45,46 @@ export default function Navbar() {
     const [isSearching, setIsSearching] = useState(false);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
 
-    // Toggle this to test logged in vs logged out dropdown
-    const isLoggedIn = true;
+    const router = useRouter();
+    const { user, isLoggedIn, loading, logout } = useAuth();
 
-    // Function to handle the actual logout logic
-    const handleLogout = () => {
-        console.log("User logged out!");
-        setIsLogoutModalOpen(false);
-        // Add your redirect or auth clearing logic here
+    const [logoutLoading, setLogoutLoading] = useState(false);
+    const [logoutError, setLogoutError] = useState('');
+
+    const fullName =
+        [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+        'Customer';
+
+    const handleAccountClick = event => {
+        if (loading) {
+            event.preventDefault();
+            return;
+        }
+
+        setIsMenuOpen(false);
+
+        if (!isLoggedIn) {
+            event.preventDefault();
+            setIsLoginModalOpen(true);
+        }
+    };
+
+    const handleLogout = async () => {
+        if (logoutLoading) return;
+
+        setLogoutLoading(true);
+        setLogoutError('');
+
+        try {
+            await logout();
+            setIsLogoutModalOpen(false);
+            router.replace('/');
+            router.refresh();
+        } catch (error) {
+            setLogoutError(error.message);
+        } finally {
+            setLogoutLoading(false);
+        }
     };
 
     // --- Debounced Search Effect ---
@@ -168,7 +202,7 @@ export default function Navbar() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onFocus={() => searchQuery.length >= 2 && setShowSearchDropdown(true)}
-                            onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)} 
+                            onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
                             className="bg-transparent text-sm outline-none pr-2 w-40 border-b border-[#BF8F5F] py-1"
                         />
 
@@ -223,7 +257,8 @@ export default function Navbar() {
                     <div className="flex items-center gap-4 lg:gap-8">
                         {/* Profile Wrapper with Dropdown */}
                         <div className="relative group flex items-center py-4">
-                            <Link href={isLoggedIn ? "/account/info" : "/login"} className="text-gray-700 hover:text-[#BF8F5F] transition-colors">
+                            <Link href="/account/info"
+                                onClick={handleAccountClick} className="text-gray-700 hover:text-[#BF8F5F] transition-colors">
                                 <div className="relative h-3.5 w-3.5 lg:h-5 lg:w-5">
                                     <Image src="/icons/User.svg" alt="User Profile" fill className="object-contain" />
                                 </div>
@@ -237,35 +272,61 @@ export default function Navbar() {
                                                 <Image src="/images/UserAvatar.webp" alt="User" width={48} height={48} className="object-cover w-full h-full" />
                                             </div>
                                             <div>
-                                                <h3 className="font-serif text-[18px] text-[#222222] leading-tight">Mr. Rakesh Kumar</h3>
-                                                <p className="text-[#BF8F5F] text-[14px] mt-1">#345674532</p>
+                                                <h3 className="font-serif text-[18px] text-[#222222] leading-tight">
+                                                    {fullName}
+                                                </h3>
+
+                                                <p className="text-[#BF8F5F] text-[14px] mt-1">
+                                                    +91 {user?.phone}
+                                                </p>
                                             </div>
                                         </div>
                                         <div className="flex flex-col p-2 text-[14px] font-medium text-[#222222]">
-                                            <Link href="/account/info" className="px-4 py-2.5 hover:bg-[#F9F1E7] hover:text-[#BF8F5F] transition-colors flex items-center gap-3">
-                                                <span className="w-4 h-4 flex items-center justify-center border border-current rounded-full" /> Account Information
-                                            </Link>
-                                            <Link href="/account/orders" className="px-4 py-2.5 hover:bg-[#F9F1E7] hover:text-[#BF8F5F] transition-colors flex items-center justify-between">
-                                                <div className="flex items-center gap-3"><span className="w-4 h-4 flex items-center justify-center border border-current" /> Orders</div>
-                                                <span>›</span>
-                                            </Link>
-                                            <Link href="/about" className="px-4 py-2.5 hover:bg-[#F9F1E7] hover:text-[#BF8F5F] transition-colors flex items-center gap-3">
-                                                <span className="w-4 h-4 flex items-center justify-center border border-current rounded-full" /> About Us
-                                            </Link>
-                                            <Link href="/support" className="px-4 py-2.5 hover:bg-[#F9F1E7] hover:text-[#BF8F5F] transition-colors flex items-center gap-3">
-                                                <span className="w-4 h-4 flex items-center justify-center border border-current rounded-full" /> Customer Support
-                                            </Link>
-                                            <Link href="/career" className="px-4 py-2.5 hover:bg-[#F9F1E7] hover:text-[#BF8F5F] transition-colors flex items-center gap-3">
-                                                <span className="w-4 h-4 flex items-center justify-center border border-current" /> Career
-                                            </Link>
-                                            <Link href="/blog" className="px-4 py-2.5 hover:bg-[#F9F1E7] hover:text-[#BF8F5F] transition-colors flex items-center gap-3">
-                                                <span className="w-4 h-4 flex items-center justify-center border border-current" /> Blog
-                                            </Link>
+                                            {[
+                                                { title: 'Account Information', href: '/account/info', icon: 'User.svg' },
+                                                { title: 'Orders', href: '/account/orders', icon: 'Orders.svg' },
+                                                { title: 'About Us', href: '/about', icon: 'AboutUs.svg' },
+                                                { title: 'Customer Support', href: '/support', icon: 'CustomerSupport.svg' },
+                                                { title: 'Career', href: '/career', icon: 'Career.svg' },
+                                                { title: 'Blog', href: '/blog', icon: 'Blog.svg' },
+                                            ].map((item) => (
+                                                <Link
+                                                    key={item.title}
+                                                    href={item.href}
+                                                    className="group/menu-item px-4 py-2.5 hover:bg-[#F9F1E7] hover:text-[#BF8F5F] transition-colors flex items-center gap-3"
+                                                >
+                                                    <Image
+                                                        src={`/icons/${item.icon}`}
+                                                        alt=""
+                                                        width={18}
+                                                        height={18}
+                                                        className="w-[18px] h-[18px] object-contain shrink-0"
+                                                    />
+
+                                                    <span>{item.title}</span>
+
+                                                    <span
+                                                        className="ml-auto opacity-0 group-hover/menu-item:opacity-100 group-focus-visible/menu-item:opacity-100 transition-opacity"
+                                                        aria-hidden="true"
+                                                    >
+                                                        ›
+                                                    </span>
+                                                </Link>
+                                            ))}
+
                                             <button
+                                                type="button"
                                                 onClick={() => setIsLogoutModalOpen(true)}
-                                                className="px-4 py-2.5 hover:text-red-500 transition-colors flex items-center gap-3 text-left mt-1 border-t border-gray-50 w-full"
+                                                className="px-4 py-2.5 hover:text-red-500 transition-colors flex items-center gap-3 text-left mt-1 mb-4 border-t border-gray-50 w-full"
                                             >
-                                                <span className="w-4 h-4 flex items-center justify-center border border-current" /> Logout
+                                                <Image
+                                                    src="/icons/Logout.svg"
+                                                    alt=""
+                                                    width={18}
+                                                    height={18}
+                                                    className="w-[18px] h-[18px] object-contain shrink-0"
+                                                />
+                                                <span>Logout</span>
                                             </button>
                                         </div>
                                     </div>
@@ -288,9 +349,32 @@ export default function Navbar() {
                             </div>
                         </div>
 
-                        <Link href="/cart" className="text-gray-700 hover:text-[#BF8F5F] transition-colors relative">
+                        <Link
+                            href="/account/wishlist"
+                            aria-label="Wishlist"
+                            className="text-gray-700 hover:text-[#BF8F5F] transition-colors relative"
+                        >
                             <div className="relative h-3.5 w-3.5 lg:h-5 lg:w-5">
-                                <Image src="/icons/Cart.svg" alt="Shopping Cart" fill className="object-contain" />
+                                <Image
+                                    src="/icons/Wish.svg"
+                                    alt=""
+                                    fill
+                                    className="object-contain"
+                                />
+                            </div>
+                        </Link>
+                        <Link
+                            href="/account/cart"
+                            aria-label="Shopping Cart"
+                            className="text-gray-700 hover:text-[#BF8F5F] transition-colors relative"
+                        >
+                            <div className="relative h-3.5 w-3.5 lg:h-5 lg:w-5">
+                                <Image
+                                    src="/icons/Cart.svg"
+                                    alt=""
+                                    fill
+                                    className="object-contain"
+                                />
                             </div>
                         </Link>
                     </div>
@@ -339,7 +423,7 @@ export default function Navbar() {
 
                     {/* Mobile Quick Links separated at bottom */}
                     <div className="border-t border-gray-100 mt-4 pt-4 flex flex-col gap-3">
-                        <Link href={isLoggedIn ? "/account/info" : "/login"} className="text-[14px] font-medium text-gray-600 hover:text-[#BF8F5F]">My Account</Link>
+                        <Link href="/account/info" onClick={handleAccountClick} className="text-[14px] font-medium text-gray-600 hover:text-[#BF8F5F]">My Account</Link>
                         <Link href="/faq" className="text-[14px] font-medium text-gray-600 hover:text-[#BF8F5F]">FAQ</Link>
                         <Link href="/support" className="text-[14px] font-medium text-gray-600 hover:text-[#BF8F5F]">Customer Support</Link>
                     </div>
@@ -347,13 +431,21 @@ export default function Navbar() {
             )}
             <LogoutModal
                 isOpen={isLogoutModalOpen}
-                onClose={() => setIsLogoutModalOpen(false)}
+                onClose={() => {
+                    if (!logoutLoading) {
+                        setIsLogoutModalOpen(false);
+                        setLogoutError('');
+                    }
+                }}
                 onLogout={handleLogout}
+                isLoading={logoutLoading}
+                error={logoutError}
             />
+
             <LoginModal
                 isOpen={isLoginModalOpen}
                 onClose={() => setIsLoginModalOpen(false)}
-                onSuccess={() => console.log('Successfully logged in!')}
+                onSuccess={() => router.refresh()}
             />
         </header>
     );

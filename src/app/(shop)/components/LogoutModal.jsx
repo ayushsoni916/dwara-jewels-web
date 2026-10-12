@@ -1,17 +1,17 @@
 import React from 'react';
 
-export default function LogoutModal({ isOpen, onClose, onLogout }) {
+export default function LogoutModal({ isOpen, onClose, onLogout, isLoading = false, error = '' }) {
     if (!isOpen) return null;
 
     return (
         // Backdrop with dim and blur effect
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            
+
             {/* Modal Container with Custom Shadow */}
             <div className="bg-[#FFFFFF] shadow-[0px_4px_22.3px_0px_#BF8F5F63] w-full max-w-[560px] p-8 md:p-12 relative animate-in fade-in zoom-in-95 duration-200">
-                
+
                 {/* Close Button (X) */}
-                <button 
+                <button
                     onClick={onClose}
                     className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center border border-[#BF8F5F] text-[#BF8F5F] hover:bg-[#F9F1E7] transition-colors"
                     aria-label="Close"
@@ -32,15 +32,21 @@ export default function LogoutModal({ isOpen, onClose, onLogout }) {
                     </p>
                 </div>
 
+                {error && (
+                    <p role="alert" className="mb-4 text-sm text-red-600">
+                        {error}
+                    </p>
+                )}
+
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                    <button 
+                    <button
                         onClick={onLogout}
                         className="w-full sm:w-1/2 border border-[#BF8F5F] text-[#BF8F5F] font-bold text-xs uppercase tracking-widest py-3.5 hover:bg-[#F9F1E7] transition-colors rounded-sm"
                     >
-                        Logout
+                        {isLoading ? 'Logging out…' : 'Logout'}
                     </button>
-                    <button 
+                    <button
                         onClick={onClose}
                         className="w-full sm:w-1/2 bg-[#BF8F5F] text-white font-bold text-xs uppercase tracking-widest py-3.5 hover:bg-black transition-colors rounded-sm"
                     >

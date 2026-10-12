@@ -1,11 +1,38 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, {
+    Suspense,
+    useEffect,
+    useRef,
+    useState,
+} from 'react';
 import { AlertCircle, CheckCircle2, ChevronDown, ImageIcon, Loader2, Plus, Upload, X } from 'lucide-react';
-import axios from 'axios';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
-const AddProduct = () => {
+import {
+    getAdminProductApi,
+    saveAdminProductApi,
+} from '../../../api/adminProductApi';
+
+import { fetchCategoryApi } from '../../../api/categoryApi';
+import { fetchCollectionApi } from '../../../api/collectionApi';
+
+const AddProduct = ({ productId, mode }) => {
+
+    const router = useRouter();
+
+    const isView = Boolean(productId && mode === 'view');
+    const isEdit = Boolean(productId && !isView);
+
+    const [detailLoading, setDetailLoading] = useState(Boolean(productId));
+    const [detailError, setDetailError] = useState('');
+    const [expectedUpdatedAt, setExpectedUpdatedAt] = useState('');
+
+    const [catalogLoading, setCatalogLoading] = useState(true);
+    const [catalogError, setCatalogError] = useState('');
+
+    const saveLock = useRef(false);
 
     const [productData, setProductData] = useState({
         title: '',
@@ -19,7 +46,8 @@ const AddProduct = () => {
         tags: '',
         price: { basePrice: '', makingCharges: 0, compareAtPrice: '', tax: '', finalPrice: '', currency: 'INR' }, // Default INR, makingCharges 0
         metal: { type: 'Gold', quality: '92.5', color: '', weight: '' },
-        dimensions: [{ width: '', length: '', size: '', stock: 0 }]
+        dimensions: [{ width: '', length: '', size: '', stock: 0 }],
+        gender: '',
     });
 
     const [stones, setStones] = useState([
@@ -43,6 +71,7 @@ const AddProduct = () => {
 
     const handleDrop = (e, dropIndex) => {
         e.preventDefault();
+        if (isView || isLoading || isConverting) return;
         if (draggedIndex === null || draggedIndex === dropIndex) return;
 
         const newImages = [...selectedImages];
@@ -72,115 +101,113 @@ const AddProduct = () => {
         }));
     };
 
-    const removeDimension = (index) => {
-        setProductData(prev => ({
-            ...prev,
-            dimensions: prev.dimensions.length > 1
-                ? prev.dimensions.filter((_, i) => i !== index)
-                : prev.dimensions
+    const removeDimension = index => {
+        if (productData.dimensions[index]?._id) {
+            showToast(
+                'For an existing dimension, set stock to 0 instead of removing it.',
+                'error'
+            );
+            return;
+        }
+
+        setProductData(previous => ({
+            ...previous,
+            dimensions: previous.dimensions.length > 1
+                ? previous.dimensions.filter((_, i) => i !== index)
+                : previous.dimensions,
         }));
     };
 
-    // --- CROP SAVING LOGIC ---
-    // const handleSaveCrop = async () => {
-    //     if (!completedCrop || !completedCrop.width || !completedCrop.height) return;
-    //     setIsLoading(true);
 
-    //     const image = document.getElementById('crop-source-image');
-    //     const canvas = document.createElement('canvas');
-    //     const scaleX = image.naturalWidth / image.width;
-    //     const scaleY = image.naturalHeight / image.height;
-    //     canvas.width = completedCrop.width;
-    //     canvas.height = completedCrop.height;
-    //     const ctx = canvas.getContext('2d');
-
-    //     ctx.drawImage(
-    //         image,
-    //         completedCrop.x * scaleX, completedCrop.y * scaleY,
-    //         completedCrop.width * scaleX, completedCrop.height * scaleY,
-    //         0, 0, completedCrop.width, completedCrop.height
-    //     );
-
-    //     canvas.toBlob((blob) => {
-    //         if (blob) {
-    //             const file = new File([blob], 'cropped-image.webp', { type: 'image/webp' });
-    //             const url = URL.createObjectURL(file);
-    //             const newImages = [...selectedImages];
-    //             newImages[cropModal.index] = {
-    //                 ...newImages[cropModal.index], // <-- ADD THIS: Keeps the originalUrl intact
-    //                 url: url,
-    //                 file: file
-    //             };
-    //             setSelectedImages(newImages);
-    //             setCropModal({ isOpen: false, index: null, src: '' });
-    //         }
-    //         setIsLoading(false);
-    //     }, 'image/webp');
-    // };
 
     const handleSaveCrop = async () => {
-        if (!completedCrop?.width || !completedCrop?.height) return;
+        if (
+            isView ||
+            isLoading ||
+            !completedCrop?.width ||
+            !completedCrop?.height
+        ) {
+            return;
+        }
 
         setIsLoading(true);
 
-        const image = document.getElementById('crop-source-image');
-        const canvas = document.createElement('canvas');
+        try {
+            const image = document.getElementById('crop-source-image');
 
-        const scaleX = image.naturalWidth / image.width;
-        const scaleY = image.naturalHeight / image.height;
+            if (!image?.naturalWidth || !image?.naturalHeight) {
+                throw new Error('Wait for the image to load before cropping');
+            }
 
-        // Preserve the original image resolution
-        canvas.width = Math.round(completedCrop.width * scaleX);
-        canvas.height = Math.round(completedCrop.height * scaleY);
+            const canvas = document.createElement('canvas');
+            const scaleX = image.naturalWidth / image.width;
+            const scaleY = image.naturalHeight / image.height;
 
-        const ctx = canvas.getContext('2d');
+            canvas.width = Math.max(
+                1,
+                Math.round(completedCrop.width * scaleX)
+            );
 
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+            canvas.height = Math.max(
+                1,
+                Math.round(completedCrop.height * scaleY)
+            );
 
-        ctx.drawImage(
-            image,
-            completedCrop.x * scaleX,
-            completedCrop.y * scaleY,
-            completedCrop.width * scaleX,
-            completedCrop.height * scaleY,
-            0,
-            0,
-            canvas.width,
-            canvas.height
-        );
+            const context = canvas.getContext('2d');
 
-        canvas.toBlob(
-            (blob) => {
-                if (blob) {
-                    const file = new File(
-                        [blob],
-                        'cropped-image.webp',
-                        { type: 'image/webp' }
-                    );
+            if (!context) throw new Error('Unable to crop this image');
 
-                    const url = URL.createObjectURL(file);
-                    const newImages = [...selectedImages];
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = 'high';
 
-                    newImages[cropModal.index] = {
-                        ...newImages[cropModal.index],
-                        url,
-                        file
-                    };
+            context.drawImage(
+                image,
+                completedCrop.x * scaleX,
+                completedCrop.y * scaleY,
+                completedCrop.width * scaleX,
+                completedCrop.height * scaleY,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
 
-                    setSelectedImages(newImages);
-                    setCropModal({
-                        isOpen: false,
-                        index: null,
-                        src: ''
-                    });
-                }
+            const blob = await new Promise((resolve, reject) => {
+                canvas.toBlob(
+                    result => result
+                        ? resolve(result)
+                        : reject(new Error('Unable to crop this image')),
+                    'image/webp',
+                    1
+                );
+            });
 
-                setIsLoading(false);
-            },
-            'image/webp',
-            1
-        );
+            const file = new File(
+                [blob],
+                'cropped-image.webp',
+                { type: 'image/webp' }
+            );
+
+            const url = URL.createObjectURL(file);
+            const imageIndex = cropModal.index;
+
+            setSelectedImages(previous =>
+                previous.map((item, index) =>
+                    index === imageIndex
+                        ? { ...item, url, file }
+                        : item
+                )
+            );
+
+            setCropModal({ isOpen: false, index: null, src: '' });
+        } catch {
+            showToast(
+                'Unable to crop this image. You can upload a replacement image.',
+                'error'
+            );
+        } finally {
+            setIsLoading(false);
+        }
     };
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
@@ -188,20 +215,169 @@ const AddProduct = () => {
     };
 
     useEffect(() => {
-        const fetchData = async () => {
+        let ignore = false;
+
+        const load = async () => {
             try {
-                const [catRes, colRes] = await Promise.all([
-                    axios.get('https://dwarajewels.in/api/category'),
-                    axios.get('https://dwarajewels.in/api/collection')
+                const [normal, luxury, collectionData] = await Promise.all([
+                    fetchCategoryApi('normal'),
+                    fetchCategoryApi('luxury'),
+                    fetchCollectionApi(),
                 ]);
-                if (catRes.data.success) setCategories(catRes.data.categories);
-                if (colRes.data.success) setCollections(colRes.data.collections);
-            } catch (err) {
-                console.error("Error fetching data:", err);
+
+                if (
+                    !normal.success ||
+                    !luxury.success ||
+                    !collectionData.success ||
+                    !Array.isArray(normal.categories) ||
+                    !Array.isArray(luxury.categories) ||
+                    !Array.isArray(collectionData.collections)
+                ) {
+                    throw new Error('Unable to load categories and collections');
+                }
+
+                if (ignore) return;
+
+                const uniqueCategories = new Map(
+                    [...normal.categories, ...luxury.categories]
+                        .map(category => [category._id, category])
+                );
+
+                setCategories([...uniqueCategories.values()]);
+                setCollections(collectionData.collections);
+            } catch (error) {
+                if (!ignore) {
+                    setCatalogError(error.data?.error || error.message);
+                }
+            } finally {
+                if (!ignore) setCatalogLoading(false);
             }
         };
-        fetchData();
+
+        load();
+
+        return () => {
+            ignore = true;
+        };
     }, []);
+
+    useEffect(() => {
+        if (!productId) return;
+
+        let ignore = false;
+
+        const load = async () => {
+            try {
+                const data = await getAdminProductApi(productId);
+
+                if (!data.success || !data.product) {
+                    throw new Error(data.error || 'Product not found');
+                }
+
+                if (ignore) return;
+
+                const product = data.product;
+
+                setProductData(previous => ({
+                    ...previous,
+                    title: product.title ?? '',
+                    sku: product.sku ?? '',
+                    description: product.description ?? '',
+                    gender: product.gender ?? '',
+                    category: product.category?._id || product.category || '',
+                    subCategory: product.subCategory ?? '',
+                    collectionId:
+                        product.collection?._id || product.collection || '',
+                    isNewArrival: Boolean(product.isNewArrival),
+                    isLuxe: Boolean(product.isLuxe),
+                    tags: Array.isArray(product.tags)
+                        ? product.tags.join(', ')
+                        : product.tags || '',
+
+                    price: Object.fromEntries(
+                        Object.keys(previous.price).map(field => [
+                            field,
+                            product.price?.[field] ?? previous.price[field],
+                        ])
+                    ),
+
+                    metal: Object.fromEntries(
+                        Object.keys(previous.metal).map(field => [
+                            field,
+                            product.metal?.[field] ?? previous.metal[field],
+                        ])
+                    ),
+
+                    dimensions: product.dimensions?.length
+                        ? product.dimensions.map(dimension => ({
+                            _id: dimension._id,
+                            width: dimension.width ?? '',
+                            length: dimension.length ?? '',
+                            size: dimension.size ?? '',
+                            stock: dimension.stock ?? 0,
+                        }))
+                        : [{ width: '', length: '', size: '', stock: 0 }],
+                }));
+
+                setStones(
+                    product.stones?.length
+                        ? product.stones.map(stone => ({
+                            type: stone.type ?? '',
+                            shape: stone.shape ?? '',
+                            color: stone.color ?? '',
+                            clarity: stone.clarity ?? '',
+                            weight: stone.weight ?? '',
+                            count: stone.count ?? '',
+                        }))
+                        : [{
+                            type: '',
+                            shape: '',
+                            color: '',
+                            clarity: '',
+                            weight: '',
+                            count: '',
+                        }]
+                );
+
+                const images = product.images?.length
+                    ? product.images
+                    : product.thumbnail
+                        ? [product.thumbnail]
+                        : [];
+
+                setSelectedImages(
+                    images.map(url => ({
+                        url,
+                        originalUrl: url,
+                        existingUrl: url,
+                        file: null,
+                    }))
+                );
+
+                setExpectedUpdatedAt(product.updatedAt);
+            } catch (error) {
+                if (!ignore) {
+                    setDetailError(error.data?.error || error.message);
+                }
+            } finally {
+                if (!ignore) setDetailLoading(false);
+            }
+        };
+
+        load();
+
+        return () => {
+            ignore = true;
+        };
+    }, [productId]);
+
+    useEffect(() => {
+        const category = categories.find(
+            item => item._id === productData.category
+        );
+
+        setAvailableSubCategories(category?.subCategories || []);
+    }, [categories, productData.category]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -297,73 +473,159 @@ const AddProduct = () => {
     };
 
     const validateForm = () => {
-        if (!productData.title) return "Product Name is required";
-        if (!productData.sku) return "SKU is required";
-        if (!productData.category) return "Please select a Category";
-        if (!productData.price.finalPrice) return "Final Price is required";
-        if (selectedImages.length === 0) return "At least one image is required";
+        if (!productData.title.trim()) return 'Product Name is required';
+        if (!productData.sku.trim()) return 'SKU is required';
+        if (!productData.category) return 'Please select a Category';
+
+        if (!['Male', 'Female', 'Unisex'].includes(productData.gender)) {
+            return 'Please select Gender';
+        }
+
+        const price = Number(productData.price.finalPrice);
+
+        if (!Number.isFinite(price) || price <= 0) {
+            return 'Enter a valid positive Final Price';
+        }
+
+        if (!selectedImages.length) {
+            return 'At least one image is required';
+        }
+
+        if (!productData.dimensions.length) {
+            return 'At least one dimension is required';
+        }
+
         if (productData.dimensions.some(dimension =>
             String(dimension.stock ?? '').trim() === '' ||
-            !Number.isInteger(Number(dimension.stock)) ||
+            !Number.isSafeInteger(Number(dimension.stock)) ||
             Number(dimension.stock) < 0
         )) {
-            return "Each dimension needs a non-negative whole-number stock";
+            return 'Each dimension needs a non-negative whole-number stock';
         }
+
         return null;
     };
 
     const handleCreateProduct = async () => {
+        if (isView || isLoading || isConverting || saveLock.current) return;
+
         const errorMsg = validateForm();
+
         if (errorMsg) return showToast(errorMsg, 'error');
 
+        saveLock.current = true;
         setIsLoading(true);
-        const formData = new FormData();
-
-        formData.append('title', productData.title);
-        formData.append('sku', productData.sku);
-        formData.append('description', productData.description);
-        formData.append('category', productData.category);
-        formData.append('subCategory', productData.subCategory);
-        if (productData.collectionId) {
-            formData.append('collection', productData.collectionId);
-        }
-        // formData.append('stock', productData.stock);
-        formData.append('isNewArrival', productData.isNewArrival);
-        formData.append('isLuxe', productData.isLuxe);
-
-        const tagsArray = productData.tags.split(',')
-            .map(tag => tag.trim())
-            .filter(tag => tag.length > 0);
-        formData.append('tags', JSON.stringify(tagsArray));
-
-        formData.append('price', JSON.stringify(productData.price));
-        formData.append('metal', JSON.stringify(productData.metal));
-        formData.append('dimensions', JSON.stringify(
-            productData.dimensions.map(dimension => ({
-                ...dimension,
-                stock: Number(dimension.stock)
-            }))
-        ));
-
-        const validStones = stones.filter(s => s.type || s.shape || s.weight);
-        formData.append('stones', JSON.stringify(validStones));
-
-        selectedImages.forEach(img => formData.append('images', img.file));
 
         try {
-            const response = await axios.post('http://localhost:4500/api/product', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            if (response.data.success) {
-                showToast("Product Published Successfully!", "success");
-                setTimeout(() => window.location.reload(), 2000);
+            const formData = new FormData();
+
+            for (const field of [
+                'title',
+                'sku',
+                'description',
+                'category',
+                'subCategory',
+                'gender',
+            ]) {
+                formData.append(field, productData[field]);
             }
+
+            // An empty collection clears the existing collection on edit.
+            if (productData.collectionId || isEdit) {
+                formData.append('collection', productData.collectionId || '');
+            }
+
+            formData.append('isNewArrival', String(productData.isNewArrival));
+            formData.append('isLuxe', String(productData.isLuxe));
+
+            // Your backend parses comma-separated tags.
+            formData.append('tags', productData.tags);
+
+            formData.append('price', JSON.stringify(productData.price));
+            formData.append('metal', JSON.stringify(productData.metal));
+
+            formData.append('dimensions', JSON.stringify(
+                productData.dimensions.map(dimension => ({
+                    ...(dimension._id && { _id: dimension._id }),
+                    width: dimension.width,
+                    length: dimension.length,
+                    size: dimension.size,
+                    stock: Number(dimension.stock),
+                }))
+            ));
+
+            formData.append('stones', JSON.stringify(
+                stones.filter(stone =>
+                    stone.type ||
+                    stone.shape ||
+                    stone.color ||
+                    stone.clarity ||
+                    stone.weight ||
+                    stone.count
+                )
+            ));
+
+            if (isEdit) {
+                formData.append('expectedUpdatedAt', expectedUpdatedAt);
+            }
+
+            let fileIndex = 0;
+
+            const imageOrder = selectedImages.map(image => {
+                if (image.file) {
+                    formData.append('images', image.file);
+
+                    return {
+                        type: 'new',
+                        index: fileIndex++,
+                    };
+                }
+
+                return {
+                    type: 'existing',
+                    url: image.existingUrl || image.url,
+                };
+            });
+
+            formData.append('imageOrder', JSON.stringify(imageOrder));
+
+            await saveAdminProductApi(
+                formData,
+                isEdit ? productId : undefined
+            );
+
+            router.replace('/admin/product');
         } catch (error) {
-            showToast(error.response?.data?.error || error.response?.data?.message || "Failed to create product", 'error');
+            showToast(
+                error.data?.error ||
+                error.message ||
+                'Unable to save product',
+                'error'
+            );
         } finally {
+            saveLock.current = false;
             setIsLoading(false);
         }
     };
+
+    if (detailLoading || catalogLoading) {
+        return (
+            <div className="p-8 flex items-center gap-3 text-[#B58E58]">
+                <Loader2 className="animate-spin" size={20} />
+                Loading...
+            </div>
+        );
+    }
+
+    if (detailError || catalogError) {
+        return (
+            <div className="p-8">
+                <p role="alert" className="text-sm text-red-500">
+                    {detailError || catalogError}
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="pb-20 bg-linear-to-b from-[#f4f0ea] to-[#fafafa] px-6.5 pt-5">
@@ -376,10 +638,15 @@ const AddProduct = () => {
             )}
 
             <div>
-                <h1 className="text-[#222222] text-[24px] font-bold">Add Product</h1>
+                <h1 className="text-[#222222] text-[24px] font-bold">
+                    {isView ? 'View Product' : isEdit ? 'Edit Product' : 'Add Product'}
+                </h1>
             </div>
 
-            <div className="grid grid-cols-2 gap-[63px] mt-[30px]">
+            <fieldset
+                disabled={isView || isLoading || isConverting}
+                className="grid grid-cols-2 gap-[63px] mt-[30px] min-w-0 border-0 p-0"
+            >
 
                 {/* LEFT COLUMN */}
                 <div>
@@ -407,6 +674,34 @@ const AddProduct = () => {
                                         type="text"
                                         placeholder="e.g. BR-LX-5541-2099"
                                         className="w-full bg-[#F3F3F3] rounded-[8px] px-5 py-3 outline-none focus:ring-1 focus:ring-[#B58E58] text-[12px]"
+                                    />
+                                </div>
+
+                                <div className="relative">
+                                    <label
+                                        htmlFor="product-gender"
+                                        className="block text-sm font-medium text-gray-700 mb-4"
+                                    >
+                                        Gender*
+                                    </label>
+
+                                    <select
+                                        id="product-gender"
+                                        name="gender"
+                                        value={productData.gender}
+                                        onChange={handleInputChange}
+                                        required
+                                        className="w-full appearance-none bg-[#F3F3F3] rounded-[8px] px-5 py-3 outline-none focus:ring-1 focus:ring-[#B58E58] text-[12px]"
+                                    >
+                                        <option value="">Select Gender</option>
+                                        <option value="Male">Men</option>
+                                        <option value="Female">Women</option>
+                                        <option value="Unisex">Unisex</option>
+                                    </select>
+
+                                    <ChevronDown
+                                        size={14}
+                                        className="absolute right-4 bottom-4 text-gray-400 pointer-events-none"
                                     />
                                 </div>
                                 {/* <div>
@@ -556,11 +851,22 @@ const AddProduct = () => {
                                 {selectedImages.map((img, i) => (
                                     <div
                                         key={i}
-                                        draggable
+                                        draggable={!isView && !isLoading && !isConverting}
                                         onDragStart={(e) => handleDragStart(e, i)}
                                         onDragOver={(e) => e.preventDefault()}
                                         onDrop={(e) => handleDrop(e, i)}
-                                        onClick={() => setCropModal({ isOpen: true, index: i, src: img.originalUrl || img.url })}
+                                        onClick={() => {
+                                            if (isView || isLoading || isConverting) return;
+
+                                            setCompletedCrop(null);
+                                            setCrop({ unit: '%', width: 80, height: 80, x: 10, y: 10 });
+
+                                            setCropModal({
+                                                isOpen: true,
+                                                index: i,
+                                                src: img.originalUrl || img.url,
+                                            });
+                                        }}
                                         className={`relative w-24 h-24 rounded-lg flex items-center justify-center cursor-move transition-all
                 ${i === 0 ? 'border-2 border-[#B58E58] bg-[#FCF6F2] shadow-md' : 'border border-gray-200 bg-gray-50 hover:bg-gray-100'}`}
                                     >
@@ -729,7 +1035,7 @@ const AddProduct = () => {
                                         </div>
                                     ))}
 
-                                    {productData.dimensions.length > 1 && (
+                                    {productData.dimensions.length > 1 && !dimension._id && (
                                         <button
                                             type="button"
                                             onClick={() => removeDimension(index)}
@@ -746,21 +1052,62 @@ const AddProduct = () => {
 
                 </div>
 
-                <div className="col-span-2 mt-2 flex justify-end">
-                    <button
-                        disabled={isLoading}
-                        onClick={handleCreateProduct}
-                        className={`px-12 py-4 rounded-[15px] font-bold text-white shadow-lg transition-all flex items-center gap-3
-        ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#B58E58] hover:bg-[#9a7645] shadow-[#B58E58]/20'}`}
-                    >
-                        {isLoading && <Loader2 className="animate-spin" size={20} />}
-                        {isLoading ? 'Creating Product...' : 'Publish Product'}
-                    </button>
-                </div>
+                {!isView && (
+                    <div className="col-span-2 mt-2 flex justify-end">
+                        <button
+                            type="button"
+                            disabled={isLoading || isConverting}
+                            onClick={handleCreateProduct}
+                            className={`px-12 py-4 rounded-[15px] font-bold text-white shadow-lg transition-all flex items-center gap-3 ${isLoading || isConverting
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-[#B58E58] hover:bg-[#9a7645] shadow-[#B58E58]/20'
+                                }`}
+                        >
+                            {isLoading && (
+                                <Loader2 className="animate-spin" size={20} />
+                            )}
 
-            </div>
+                            {isConverting
+                                ? 'Processing Images...'
+                                : isLoading
+                                    ? isEdit
+                                        ? 'Updating Product...'
+                                        : 'Creating Product...'
+                                    : isEdit
+                                        ? 'Update Product'
+                                        : 'Publish Product'}
+                        </button>
+                    </div>
+                )}
+
+            </fieldset>
         </div>
     );
 }
 
-export default AddProduct;
+const AddProductRoute = () => {
+    const searchParams = useSearchParams();
+
+    const productId = searchParams.get('id');
+    const mode = searchParams.get('mode') || 'edit';
+
+    return (
+        <AddProduct
+            key={`${productId || 'new'}:${mode}`}
+            productId={productId}
+            mode={mode}
+        />
+    );
+};
+
+export default function AddProductPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="p-8 text-[#B58E58]">Loading...</div>
+            }
+        >
+            <AddProductRoute />
+        </Suspense>
+    );
+}
