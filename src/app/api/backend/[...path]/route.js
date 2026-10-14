@@ -165,6 +165,19 @@ const routes = [
         requiresAuth: true,
     },
 
+    {
+        method: 'POST',
+        pattern:
+            /^admin\/orders\/[a-f\d]{24}\/shipping\/(?:rates|create|awb|pickup|label|manifest)$/i,
+        requiresAuth: true,
+    },
+    {
+        method: 'GET',
+        pattern:
+            /^admin\/orders\/[a-f\d]{24}\/shipping\/tracking$/i,
+        requiresAuth: true,
+    },
+
 
 ];
 

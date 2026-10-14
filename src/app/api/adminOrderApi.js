@@ -26,3 +26,76 @@ export const updateOrderStatusApi = async (orderId, status) => {
 
     return response.data;
 };
+
+
+export const getOrderShippingRatesApi = async (
+    orderId,
+    packageDetails
+) => {
+    const response = await apiClient.post(
+        `/admin/orders/${orderId}/shipping/rates`,
+        { packageDetails }
+    );
+
+    return response.data;
+};
+
+export const createOrderShipmentApi = async (
+    orderId,
+    packageDetails
+) => {
+    const response = await apiClient.post(
+        `/admin/orders/${orderId}/shipping/create`,
+        { packageDetails }
+    );
+
+    return response.data;
+};
+
+export const assignOrderAwbApi = async (
+    orderId,
+    courierId
+) => {
+    const response = await apiClient.post(
+        `/admin/orders/${orderId}/shipping/awb`,
+        { courierId }
+    );
+
+    return response.data;
+};
+
+export const requestOrderPickupApi = async orderId => {
+    const response = await apiClient.post(
+        `/admin/orders/${orderId}/shipping/pickup`,
+        {}
+    );
+
+    return response.data;
+};
+
+export const generateOrderLabelApi = async orderId => {
+    const response = await apiClient.post(
+        `/admin/orders/${orderId}/shipping/label`,
+        {}
+    );
+
+    return response.data;
+};
+
+export const generateOrderManifestApi = async orderId => {
+    const response = await apiClient.post(
+        `/admin/orders/${orderId}/shipping/manifest`,
+        {}
+    );
+
+    return response.data;
+};
+
+export const getAdminOrderTrackingApi = async orderId => {
+    const response = await apiClient.get(
+        `/admin/orders/${orderId}/shipping/tracking`,
+        { cache: 'no-store' }
+    );
+
+    return response.data;
+};

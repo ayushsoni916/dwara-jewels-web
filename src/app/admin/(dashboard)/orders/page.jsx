@@ -16,6 +16,9 @@ import {
     getAllOrdersApi,
     getAdminOrderDetailsApi,
     updateOrderStatusApi,
+    getOrderShippingRatesApi,
+    createOrderShipmentApi,
+    assignOrderAwbApi
 } from '../../../api/adminOrderApi';
 
 const statuses = [
@@ -29,8 +32,6 @@ const statuses = [
 
 const nextStatuses = {
     Pending: 'Processing',
-    Processing: 'Shipped',
-    Shipped: 'Delivered',
 };
 
 const statusColors = {
@@ -103,12 +104,31 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
 
+    const [packageDetails, setPackageDetails] = useState({
+        weightKg: '',
+        lengthCm: '',
+        breadthCm: '',
+        heightCm: '',
+    });
+
+    const [packingVerified, setPackingVerified] = useState(false);
+    const [checkingRates, setCheckingRates] = useState(false);
+    const [shippingRates, setShippingRates] = useState(null);
+    const [shippingError, setShippingError] = useState('');
+
+    const [creatingShipment, setCreatingShipment] = useState(false);
+    const shipmentLock = useRef(false);
+
+    const [selectedCourierId, setSelectedCourierId] = useState('');
+    const [assigningAwb, setAssigningAwb] = useState(false);
+
+
+    const awbLock = useRef(false);
+
     const updateLock = useRef(false);
 
     const allowedNextStatus = {
         Pending: 'Processing',
-        Processing: 'Shipped',
-        Shipped: 'Delivered',
     };
 
     useEffect(() => {
@@ -138,6 +158,7 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
 
             try {
                 const response = await getAdminOrderDetailsApi(orderId);
+                console.log("res", response)
 
                 if (!response.success || !response.order) {
                     throw new Error(
@@ -208,8 +229,188 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
         }
     };
 
+    const handleCheckShippingRates = async () => {
+        if (!order || checkingRates || !packingVerified) return;
+
+        const details = {
+            weightKg: Number(packageDetails.weightKg),
+            lengthCm: Number(packageDetails.lengthCm),
+            breadthCm: Number(packageDetails.breadthCm),
+            heightCm: Number(packageDetails.heightCm),
+        };
+
+        if (
+            !Object.values(details).every(
+                value => Number.isFinite(value) && value > 0
+            )
+        ) {
+            setShippingError(
+                'Enter valid package weight and dimensions.'
+            );
+            return;
+        }
+
+        setCheckingRates(true);
+        setShippingError('');
+        setShippingRates(null);
+
+        try {
+            const response = await getOrderShippingRatesApi(
+                order._id,
+                details
+            );
+
+            if (!response.success) {
+                throw new Error(
+                    response.error || 'Unable to check shipping rates'
+                );
+            }
+
+            setShippingRates(response);
+
+        } catch (error) {
+            setShippingError(getErrorMessage(error));
+        } finally {
+            setCheckingRates(false);
+        }
+    };
+
+    const handleCreateShipment = async () => {
+        if (
+            !order ||
+            !packingVerified ||
+            !shippingRates?.serviceable ||
+            shipmentLock.current ||
+            order.paymentStatus !== 'Paid' ||
+            !['Pending', 'Processing'].includes(order.status) ||
+            order.shipping?.bookingStatus === 'Creating' ||
+            order.shipping?.bookingStatus === 'NeedsReview' ||
+            order.shipping?.shipmentId
+        ) {
+            return;
+        }
+
+        shipmentLock.current = true;
+        setCreatingShipment(true);
+        setShippingError('');
+
+        try {
+            const response = await createOrderShipmentApi(
+                order._id,
+                shippingRates.packageDetails
+            );
+
+            if (!response.success) {
+                throw new Error(
+                    response.error || 'Unable to create shipment'
+                );
+            }
+
+            setOrder(previous => ({
+                ...previous,
+                shipping: response.shipping,
+            }));
+
+            setMessage('Shiprocket shipment created successfully.');
+            onUpdated?.();
+
+        } catch (error) {
+            setShippingError(getErrorMessage(error));
+
+            // Refresh to reflect Created or NeedsReview states.
+            try {
+                const refreshed = await getAdminOrderDetailsApi(order._id);
+                if (refreshed.success && refreshed.order) {
+                    setOrder(refreshed.order);
+                }
+            } catch {
+                // Preserve the original error.
+            }
+        } finally {
+            shipmentLock.current = false;
+            setCreatingShipment(false);
+        }
+    };
+
+
+    const handleAssignAwb = async () => {
+        if (
+            !order ||
+            !order.shipping?.shipmentId ||
+            !selectedCourierId ||
+            assigningAwb ||
+            awbLock.current ||
+            order.shipping?.awbCode ||
+            order.shipping?.bookingStatus !== 'Created'
+        ) {
+            return;
+        }
+
+        const courierId = Number(selectedCourierId);
+
+        if (!Number.isSafeInteger(courierId) || courierId <= 0) {
+            setShippingError('Please select a valid courier.');
+            return;
+        }
+
+        awbLock.current = true;
+        setAssigningAwb(true);
+        setShippingError('');
+        setMessage('');
+
+        try {
+            const response = await assignOrderAwbApi(
+                order._id,
+                courierId
+            );
+
+            if (!response.success || !response.shipping) {
+                throw new Error(
+                    response.error || 'Unable to assign AWB'
+                );
+            }
+
+            setOrder(previous => ({
+                ...previous,
+                shipping: response.shipping,
+            }));
+
+            setMessage(
+                response.message || 'Courier and AWB assigned successfully.'
+            );
+
+            onUpdated?.();
+        } catch (error) {
+            setShippingError(getErrorMessage(error));
+
+            // The request may have reached Shiprocket even if
+            // the response failed. Refresh before attempting again.
+            try {
+                const refreshed = await getAdminOrderDetailsApi(order._id);
+
+                if (refreshed.success && refreshed.order) {
+                    setOrder(refreshed.order);
+                }
+            } catch {
+                // Preserve the original error.
+            }
+        } finally {
+            awbLock.current = false;
+            setAssigningAwb(false);
+        }
+    };
+
+
     const address = order?.shippingAddress || {};
     const nextStatus = allowedNextStatus[order?.status];
+    const needsReview =
+        order?.shipping?.bookingStatus === 'NeedsReview';
+
+    const canAssignAwb =
+        Boolean(selectedCourierId) &&
+        !assigningAwb &&
+        order?.shipping?.bookingStatus === 'Created' &&
+        !order?.shipping?.awbCode;
 
     return createPortal(
         <div
@@ -417,6 +618,474 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
                                 ))}
                             </div>
                         </section>
+
+
+                        {/* Shiprocket Fulfillment */}
+                        {['Pending', 'Processing'].includes(order.status) && (
+                            <section className="border-t border-gray-100 pt-6">
+
+                                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <h3 className="text-base font-bold text-[#222222]">
+                                            Shiprocket Fulfillment
+                                        </h3>
+                                        <p className="mt-1 text-xs text-gray-400">
+                                            Verify and pack the order before booking shipment.
+                                        </p>
+                                    </div>
+
+                                    <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                                        Awaiting Packing
+                                    </span>
+                                </div>
+
+                                <div className="rounded-2xl border border-[#BF8F5F]/20 bg-[#FCF6F2] p-5">
+
+                                    {!order.shipping?.shipmentId && (
+                                        <>
+                                            {/* Payment Status */}
+                                            <div className="mb-5 flex items-center justify-between">
+                                                <span className="text-sm font-medium text-gray-600">
+                                                    Payment Status
+                                                </span>
+
+                                                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${order.paymentStatus === 'Paid'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : 'bg-amber-100 text-amber-700'
+                                                    }`}>
+                                                    {order.paymentStatus || 'Pending'}
+                                                </span>
+                                            </div>
+
+                                            <h4 className="mb-4 text-sm font-bold text-[#222222]">
+                                                Package Measurements
+                                            </h4>
+
+                                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                {[
+                                                    { key: 'weightKg', label: 'Weight (kg)' },
+                                                    { key: 'lengthCm', label: 'Length (cm)' },
+                                                    { key: 'breadthCm', label: 'Breadth (cm)' },
+                                                    { key: 'heightCm', label: 'Height (cm)' },
+                                                ].map(field => (
+                                                    <div key={field.key}>
+                                                        <label className="mb-2 block text-xs font-medium text-gray-600">
+                                                            {field.label}
+                                                        </label>
+
+                                                        <input
+                                                            type="number"
+                                                            min="0.01"
+                                                            step="any"
+                                                            value={packageDetails[field.key]}
+                                                            onChange={event => {
+                                                                setPackageDetails(previous => ({
+                                                                    ...previous,
+                                                                    [field.key]: event.target.value,
+                                                                }));
+                                                                setShippingRates(null);
+                                                                setPackingVerified(false);
+                                                                setShippingError('');
+                                                            }}
+                                                            placeholder="Enter measurement"
+                                                            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-[#BF8F5F]"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Packing Confirmation */}
+                                            <label className="mt-5 flex cursor-pointer items-start gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={packingVerified}
+                                                    onChange={event => {
+                                                        setPackingVerified(event.target.checked);
+                                                        setShippingRates(null);
+                                                    }}
+                                                    className="mt-1 accent-[#BF8F5F]"
+                                                />
+
+                                                <span className="text-xs leading-5 text-gray-600">
+                                                    I have verified the ordered jewellery,
+                                                    checked the packaging and entered the
+                                                    correct parcel measurements.
+                                                </span>
+                                            </label>
+
+                                            {shippingError && (
+                                                <p className="mt-4 text-xs text-red-600">
+                                                    {shippingError}
+                                                </p>
+                                            )}
+
+                                            <button
+                                                type="button"
+                                                onClick={handleCheckShippingRates}
+                                                disabled={
+                                                    checkingRates ||
+                                                    !packingVerified ||
+                                                    !['Paid', 'TestPaid'].includes(
+                                                        order.paymentStatus
+                                                    )
+                                                }
+                                                className="mt-5 w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#a87a45] disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                {checkingRates
+                                                    ? 'Checking Available Couriers...'
+                                                    : 'Check Shipping Rates'}
+                                            </button>
+
+                                            {order.paymentStatus === 'TestPaid' && (
+                                                <p className="mt-3 text-xs text-amber-700">
+                                                    Test payment: courier rates can be checked,
+                                                    but actual shipment booking is disabled.
+                                                </p>
+                                            )}
+
+                                            {/* Available Couriers */}
+                                            {shippingRates && (
+                                                <div className="mt-6 border-t border-[#BF8F5F]/20 pt-5">
+                                                    <h4 className="mb-3 text-sm font-bold">
+                                                        Available Couriers
+                                                    </h4>
+
+                                                    {!shippingRates.serviceable ? (
+                                                        <p className="text-xs text-red-600">
+                                                            No courier is currently available for
+                                                            these package details and delivery pincode.
+                                                        </p>
+                                                    ) : (
+                                                        <div className="space-y-3">
+                                                            {shippingRates.couriers.map(courier => (
+                                                                <div
+                                                                    key={courier.courier_company_id}
+                                                                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4"
+                                                                >
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-sm font-semibold text-[#222222]">
+                                                                            {courier.courier_name}
+                                                                        </p>
+
+                                                                        <p className="mt-1 text-xs text-gray-400">
+                                                                            Estimated delivery:{' '}
+                                                                            {courier.etd ||
+                                                                                'Not available'}
+                                                                        </p>
+                                                                    </div>
+
+                                                                    <p className="shrink-0 text-sm font-bold text-[#BF8F5F]">
+                                                                        {formatPrice(courier.rate)}
+                                                                    </p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+
+
+                                {/* Shipment already created */}
+                                {order.shipping?.shipmentId && (
+                                    <div className="mt-5 space-y-5">
+
+                                        {/* Shipment Information */}
+                                        <div className="rounded-xl border border-green-200 bg-green-50 p-5">
+                                            <h4 className="text-sm font-bold text-green-700">
+                                                Shiprocket Shipment Created
+                                            </h4>
+
+                                            <p className="mt-3 text-xs text-gray-600">
+                                                Order ID: {order.shipping.shiprocketOrderId}
+                                            </p>
+
+                                            <p className="mt-2 text-xs text-gray-600">
+                                                Shipment ID: {order.shipping.shipmentId}
+                                            </p>
+
+                                            <p className="mt-2 text-xs text-gray-600">
+                                                Booking Status: {order.shipping.bookingStatus}
+                                            </p>
+
+                                            <div className="mt-4 border-t border-green-200 pt-3">
+                                                <p className="text-xs font-semibold text-gray-700">
+                                                    Saved Parcel Details
+                                                </p>
+
+                                                <p className="mt-2 text-xs text-gray-600">
+                                                    Weight: {
+                                                        order.shipping.packageDetails?.weightKg ?? '—'
+                                                    } kg
+                                                </p>
+
+                                                <p className="mt-1 text-xs text-gray-600">
+                                                    Dimensions:{' '}
+                                                    {order.shipping.packageDetails?.lengthCm ?? '—'} ×{' '}
+                                                    {order.shipping.packageDetails?.breadthCm ?? '—'} ×{' '}
+                                                    {order.shipping.packageDetails?.heightCm ?? '—'} cm
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Courier Assignment */}
+                                        {!order.shipping.awbCode &&
+                                            ['Created', 'NeedsReview'].includes(
+                                                order.shipping.bookingStatus
+                                            ) && (
+                                                <div className="rounded-xl border border-gray-200 bg-white p-5">
+
+                                                    <h4 className="text-sm font-bold text-[#222222]">
+                                                        Select Courier & Assign AWB
+                                                    </h4>
+
+                                                    <p className="mt-2 text-xs text-gray-500">
+                                                        Load available couriers for the saved package.
+                                                    </p>
+
+                                                    <button
+                                                        type="button"
+                                                        disabled={checkingRates || assigningAwb}
+                                                        onClick={async () => {
+                                                            setCheckingRates(true);
+                                                            setShippingError('');
+
+                                                            try {
+                                                                const response =
+                                                                    await getOrderShippingRatesApi(
+                                                                        order._id,
+                                                                        order.shipping.packageDetails
+                                                                    );
+
+                                                                if (!response.success) {
+                                                                    throw new Error(
+                                                                        response.error ||
+                                                                        'Unable to load couriers'
+                                                                    );
+                                                                }
+
+                                                                setShippingRates(response);
+                                                                setSelectedCourierId('');
+                                                            } catch (error) {
+                                                                setShippingError(getErrorMessage(error));
+                                                            } finally {
+                                                                setCheckingRates(false);
+                                                            }
+                                                        }}
+                                                        className="mt-4 rounded-xl border border-[#BF8F5F] px-4 py-2.5 text-xs font-bold text-[#BF8F5F] disabled:opacity-50"
+                                                    >
+                                                        {checkingRates
+                                                            ? 'Loading Couriers...'
+                                                            : 'Load Available Couriers'}
+                                                    </button>
+
+                                                    {shippingRates && (
+                                                        <div className="mt-4 space-y-3">
+                                                            {shippingRates.couriers.map(courier => (
+                                                                <label
+                                                                    key={courier.courier_company_id}
+                                                                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-4"
+                                                                >
+                                                                    <input
+                                                                        type="radio"
+                                                                        name="shiprocketCourier"
+                                                                        value={courier.courier_company_id}
+                                                                        checked={
+                                                                            selectedCourierId ===
+                                                                            String(courier.courier_company_id)
+                                                                        }
+                                                                        onChange={event =>
+                                                                            setSelectedCourierId(
+                                                                                event.target.value
+                                                                            )
+                                                                        }
+                                                                        className="accent-[#BF8F5F]"
+                                                                    />
+
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="text-sm font-bold">
+                                                                            {courier.courier_name}
+                                                                        </p>
+
+                                                                        <p className="mt-1 text-xs text-gray-400">
+                                                                            ETA: {courier.etd || '—'}
+                                                                        </p>
+                                                                    </div>
+
+                                                                    <p className="text-sm font-bold text-[#BF8F5F]">
+                                                                        {formatPrice(courier.rate)}
+                                                                    </p>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            console.log('AWB Assignment Check:', {
+                                                                orderId: order._id,
+                                                                shipmentId: order.shipping?.shipmentId,
+                                                                selectedCourierId,
+                                                                bookingStatus: order.shipping?.bookingStatus,
+                                                                awbCode: order.shipping?.awbCode,
+                                                                assigningAwb,
+                                                                canAssignAwb,
+                                                            });
+
+                                                            handleAssignAwb();
+                                                        }}
+                                                        disabled={!canAssignAwb}
+                                                        className="mt-5 w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {assigningAwb
+                                                            ? 'Assigning AWB...'
+                                                            : needsReview
+                                                                ? 'AWB Assignment Requires Review'
+                                                                : 'Assign Courier & Generate AWB'}
+                                                    </button>
+                                                    {needsReview ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const response = await getAdminOrderDetailsApi(order._id);
+
+                                                                    if (!response.success || !response.order) {
+                                                                        throw new Error('Unable to refresh order');
+                                                                    }
+
+                                                                    setOrder(response.order);
+                                                                    setShippingError('');
+                                                                } catch (error) {
+                                                                    setShippingError(getErrorMessage(error));
+                                                                }
+                                                            }}
+                                                            className="mt-5 w-full rounded-xl border border-[#BF8F5F] px-5 py-3 text-sm font-bold text-[#BF8F5F]"
+                                                        >
+                                                            Refresh Shipment Status
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleAssignAwb}
+                                                            disabled={!selectedCourierId || assigningAwb}
+                                                            className="mt-5 w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                                                        >
+                                                            {assigningAwb
+                                                                ? 'Assigning AWB...'
+                                                                : 'Assign Courier & Generate AWB'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        {needsReview && (
+                                            <p className="mt-2 text-xs text-amber-700">
+                                                Previous AWB attempt needs verification.
+                                                Refreshing courier rates does not clear this state.
+                                            </p>
+                                        )}
+                                        {/* AWB Information */}
+                                        {order.shipping.awbCode && (
+                                            <div className="rounded-xl border border-green-200 bg-green-50 p-5">
+                                                <h4 className="text-sm font-bold text-green-700">
+                                                    Courier Assigned
+                                                </h4>
+
+                                                <p className="mt-3 text-xs text-gray-600">
+                                                    Courier: {order.shipping.courierName || '—'}
+                                                </p>
+
+                                                <p className="mt-2 text-xs font-semibold text-gray-700">
+                                                    AWB: {order.shipping.awbCode}
+                                                </p>
+
+                                                <p className="mt-3 text-xs text-green-700">
+                                                    Next: Generate shipping label and request pickup.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {order.shipping?.bookingStatus === 'NeedsReview' && (
+                                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                                                <p className="text-sm font-bold text-amber-800">
+                                                    AWB Assignment Requires Review
+                                                </p>
+
+                                                <p className="mt-2 text-xs text-amber-700">
+                                                    Shiprocket has not yet been confirmed to have
+                                                    assigned an AWB. Check the existing shipment
+                                                    before attempting another assignment.
+                                                </p>
+
+                                                {order.shipping.lastError && (
+                                                    <p className="mt-2 text-xs text-amber-700">
+                                                        {order.shipping.lastError}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {shippingError && (
+                                            <p role="alert" className="text-xs text-red-600">
+                                                {shippingError}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Create Shipment Button - Only before booking */}
+                                {shippingRates?.serviceable &&
+                                    !order.shipping?.shiprocketOrderId &&
+                                    !order.shipping?.shipmentId && (
+                                        <div className="mt-5">
+                                            <button
+                                                type="button"
+                                                onClick={handleCreateShipment}
+                                                disabled={
+                                                    creatingShipment ||
+                                                    !packingVerified ||
+                                                    order.paymentStatus !== 'Paid' ||
+                                                    !['Pending', 'Processing'].includes(order.status) ||
+                                                    ![undefined, 'NotCreated'].includes(
+                                                        order.shipping?.bookingStatus
+                                                    )
+                                                }
+                                                className="w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#a87a45] disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                {creatingShipment
+                                                    ? 'Creating Shipment...'
+                                                    : 'Create Shiprocket Shipment'}
+                                            </button>
+                                        </div>
+                                    )}
+
+
+                                {/* ADD THIS HERE */}
+                                {order.shipping?.shipmentId && (
+                                    <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
+                                        <p className="text-sm font-bold text-green-700">
+                                            Shiprocket Shipment Created
+                                        </p>
+
+                                        <p className="mt-2 text-xs text-gray-600">
+                                            Shiprocket Order ID: {order.shipping.shiprocketOrderId}
+                                        </p>
+
+                                        <p className="mt-1 text-xs text-gray-600">
+                                            Shipment ID: {order.shipping.shipmentId}
+                                        </p>
+
+                                        <p className="mt-2 text-xs font-medium text-green-700">
+                                            Next: Select Courier & Assign AWB
+                                        </p>
+                                    </div>
+                                )}
+                            </section>
+                        )}
+
 
                         {/* Summary */}
                         <section className="border-t border-gray-100 pt-5">
