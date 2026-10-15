@@ -225,11 +225,30 @@ async function handleRequest(request, { params }) {
         return reply({ error: 'Not found' }, 404);
     }
 
-    if (
-        request.method !== 'GET' &&
-        request.headers.get('origin') !== request.nextUrl.origin
-    ) {
-        return reply({ error: 'Invalid request origin' }, 403);
+    const requestOrigin = request.headers.get('origin');
+
+    if (request.method !== 'GET') {
+        const forwardedHost = request.headers.get('x-forwarded-host');
+        const host = forwardedHost || request.headers.get('host');
+
+        const expectedOrigin = host
+            ? `http://${host}`
+            : request.nextUrl.origin;
+
+        if (
+            !requestOrigin ||
+            requestOrigin !== expectedOrigin
+        ) {
+            console.warn('Invalid request origin:', {
+                requestOrigin,
+                expectedOrigin,
+            });
+
+            return reply(
+                { error: 'Invalid request origin' },
+                403
+            );
+        }
     }
 
     let session;

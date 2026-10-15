@@ -45,7 +45,7 @@ const AddProduct = ({ productId, mode }) => {
         isLuxe: false,
         tags: '',
         price: { basePrice: '', makingCharges: 0, compareAtPrice: '', tax: '', finalPrice: '', currency: 'INR' }, // Default INR, makingCharges 0
-        metal: { type: 'Gold', quality: '92.5', color: '', weight: '' },
+        metal: { type: 'Silver', quality: '92.5', color: '', weight: '' },
         dimensions: [{ width: '', length: '', size: '', stock: 0 }],
         gender: '',
     });
@@ -589,6 +589,16 @@ const AddProduct = ({ productId, mode }) => {
 
             formData.append('imageOrder', JSON.stringify(imageOrder));
 
+            console.log('Selected metal state:', productData.metal);
+
+            console.log('Metal being submitted:', {
+                type: productData.metal?.type,
+                quality: productData.metal?.quality,
+                color: productData.metal?.color,
+                weight: productData.metal?.weight,
+            });
+
+            console.log('FormData metal:', formData.get('metal'));
             await saveAdminProductApi(
                 formData,
                 isEdit ? productId : undefined
@@ -938,12 +948,26 @@ const AddProduct = ({ productId, mode }) => {
                         <h2 className="text-[18px] font-semibold text-[#222222] mb-4">Metal Details</h2>
                         <div className="grid grid-cols-2 gap-x-[63px] gap-y-6 bg-white rounded-[18px] p-8">
                             <div className="relative">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase">Metal Type</label>
-                                <select value={productData.metal.type} onChange={(e) => handleNestedChange('metal', 'type', e.target.value)} className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-1 outline-none text-[12px] appearance-none">
-                                    {/* <option value="Gold">Gold</option><option value="Silver">Silver</option><option value="Platinum">Platinum</option> */}
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">
+                                    Metal Type
+                                </label>
+
+                                <select
+                                    value={productData.metal.type}
+                                    onChange={(e) =>
+                                        handleNestedChange('metal', 'type', e.target.value)
+                                    }
+                                    className="w-full bg-[#F3F3F3] rounded-[8px] px-4 py-3 mt-1 outline-none text-[12px] appearance-none"
+                                >
                                     <option value="Silver">Silver</option>
+                                    <option value="Gold">Gold</option>
+                                    <option value="Platinum">Platinum</option>
                                 </select>
-                                <ChevronDown size={14} className="absolute right-4 bottom-4 text-gray-400" />
+
+                                <ChevronDown
+                                    size={14}
+                                    className="absolute right-4 bottom-4 text-gray-400 pointer-events-none"
+                                />
                             </div>
                             {['quality', 'color', 'weight'].map(f => (
                                 <div key={f}>

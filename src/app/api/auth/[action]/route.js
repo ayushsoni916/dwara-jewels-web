@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getWebSession,sessionIsValid,sessionOptions } from '../../../../../lib/webSession';
+import { getWebSession, sessionIsValid, sessionOptions } from '../../../../../lib/webSession';
 // import {
 //     getWebSession,
 //     sessionIsValid,
@@ -43,8 +43,34 @@ export async function POST(request, { params }) {
         return reply({ error: 'Not found' }, 404);
     }
 
-    if (request.headers.get('origin') !== request.nextUrl.origin) {
-        return reply({ error: 'Invalid request origin' }, 403);
+    const requestOrigin = request.headers.get('origin');
+    const requestHost = request.headers.get('host');
+
+    let validOrigin = false;
+
+    try {
+        if (requestOrigin && requestHost) {
+            const parsedOrigin = new URL(requestOrigin);
+
+            validOrigin =
+                ['http:', 'https:'].includes(parsedOrigin.protocol) &&
+                parsedOrigin.host === requestHost;
+        }
+    } catch {
+        validOrigin = false;
+    }
+
+    if (!validOrigin) {
+        console.warn('Invalid auth request origin:', {
+            requestOrigin,
+            requestHost,
+            nextUrlOrigin: request.nextUrl.origin,
+        });
+
+        return reply(
+            { error: 'Invalid request origin' },
+            403
+        );
     }
 
     try {
