@@ -99,3 +99,36 @@ export const getAdminOrderTrackingApi = async orderId => {
 
     return response.data;
 };
+export const checkOrderAwbStatusApi = async orderId => {
+    const response = await apiClient.get(
+        `/admin/orders/${orderId}/shipping/awb-status`,
+        { cache: 'no-store' }
+    );
+
+    return response.data;
+};
+export const recoverOrderAwbApi = async orderId => {
+    const response = await apiClient.post(
+        `/admin/orders/${orderId}/shipping/awb-recover`,
+        {}
+    );
+
+    return response.data;
+};
+
+export const getOrderShippingTrackingApi = async orderId => {
+    const response = await apiClient.get(
+        `/admin/orders/${orderId}/shipping/tracking`,
+        { cache: 'no-store' }
+    );
+
+    return response.data;
+};
+export const cancelOrderShipmentApi = async orderId => {
+    const response = await apiClient.post(
+        `/admin/orders/${orderId}/shipping/cancel`,
+        {}
+    );
+
+    return response.data;
+};

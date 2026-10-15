@@ -18,7 +18,14 @@ import {
     updateOrderStatusApi,
     getOrderShippingRatesApi,
     createOrderShipmentApi,
-    assignOrderAwbApi
+    assignOrderAwbApi,
+    checkOrderAwbStatusApi,
+    recoverOrderAwbApi,
+    generateOrderLabelApi,
+    requestOrderPickupApi,
+    generateOrderManifestApi,
+    getOrderShippingTrackingApi,
+    cancelOrderShipmentApi
 } from '../../../api/adminOrderApi';
 
 const statuses = [
@@ -104,6 +111,10 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
 
+    const [checkingAwb, setCheckingAwb] = useState(false);
+    const [awbCheckResult, setAwbCheckResult] = useState(null);
+
+
     const [packageDetails, setPackageDetails] = useState({
         weightKg: '',
         lengthCm: '',
@@ -121,6 +132,19 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
 
     const [selectedCourierId, setSelectedCourierId] = useState('');
     const [assigningAwb, setAssigningAwb] = useState(false);
+    const [recoveringAwb, setRecoveringAwb] = useState(false);
+
+    const [generatingLabel, setGeneratingLabel] = useState(false);
+    const labelLock = useRef(false);
+
+    const [requestingPickup, setRequestingPickup] = useState(false);
+    const pickupLock = useRef(false);
+
+    const [generatingManifest, setGeneratingManifest] = useState(false);
+    const manifestLock = useRef(false);
+    const [trackingData, setTrackingData] = useState(null);
+    const [trackingLoading, setTrackingLoading] = useState(false);
+    const [trackingError, setTrackingError] = useState('');
 
 
     const awbLock = useRef(false);
@@ -401,6 +425,270 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
     };
 
 
+    const handleCheckAwbStatus = async () => {
+        if (!order?.shipping?.shipmentId || checkingAwb) return;
+
+        setCheckingAwb(true);
+        setShippingError('');
+        setAwbCheckResult(null);
+
+        try {
+            const response = await checkOrderAwbStatusApi(order._id);
+
+            if (!response.success) {
+                throw new Error(
+                    response.error || 'Unable to check AWB status'
+                );
+            }
+
+            setAwbCheckResult(response);
+
+            console.log('AWB status check result:', {
+                awbAssigned: response.awbAssigned,
+                bookingStatus: response.bookingStatus,
+                remote: response.remote,
+            });
+        } catch (error) {
+            setShippingError(getErrorMessage(error));
+        } finally {
+            setCheckingAwb(false);
+        }
+    };
+
+    const handleRecoverAwb = async () => {
+        if (!order || recoveringAwb) return;
+
+        const confirmed = window.confirm(
+            'Shiprocket currently shows no AWB. Have you confirmed the previous assignment has stopped and want to unlock a retry?'
+        );
+
+        if (!confirmed) return;
+
+        setRecoveringAwb(true);
+        setShippingError('');
+
+        try {
+            const response = await recoverOrderAwbApi(order._id);
+
+            if (!response.success || !response.shipping) {
+                throw new Error(
+                    response.error || 'Unable to recover AWB assignment'
+                );
+            }
+
+            setOrder(previous => ({
+                ...previous,
+                shipping: response.shipping,
+            }));
+
+            setAwbCheckResult(null);
+            setMessage('Shipment ready for another AWB attempt.');
+
+            console.log('AWB recovery result:', response);
+            onUpdated?.();
+        } catch (error) {
+            setShippingError(getErrorMessage(error));
+        } finally {
+            setRecoveringAwb(false);
+        }
+    };
+
+
+    const handleGenerateLabel = async () => {
+        if (
+            !order?.shipping?.awbCode ||
+            generatingLabel ||
+            labelLock.current ||
+            order.shipping.bookingStatus !== 'Created'
+        ) return;
+
+        labelLock.current = true;
+        setGeneratingLabel(true);
+        setShippingError('');
+        setMessage('');
+
+        try {
+            const response = await generateOrderLabelApi(order._id);
+
+            console.log('Shiprocket Label Response:', response);
+
+            if (!response.success || !response.labelUrl) {
+                throw new Error(
+                    response.error || 'Unable to generate shipping label'
+                );
+            }
+
+            setOrder(previous => ({
+                ...previous,
+                shipping: response.shipping
+            }));
+
+            setMessage('Shipping label generated successfully.');
+            onUpdated?.();
+        } catch (error) {
+            setShippingError(getErrorMessage(error));
+        } finally {
+            labelLock.current = false;
+            setGeneratingLabel(false);
+        }
+    };
+
+
+    const handleRequestPickup = async () => {
+        if (
+            !order?.shipping?.awbCode ||
+            !order?.shipping?.labelUrl ||
+            order.shipping.pickupRequestedAt ||
+            order.shipping.bookingStatus !== 'Created' ||
+            requestingPickup ||
+            pickupLock.current
+        ) return;
+
+        pickupLock.current = true;
+        setRequestingPickup(true);
+        setShippingError('');
+        setMessage('');
+
+        try {
+            const response = await requestOrderPickupApi(order._id);
+
+            console.log('Shiprocket Pickup Response:', response);
+
+            if (!response.success || !response.shipping) {
+                throw new Error(
+                    response.error || 'Unable to request pickup'
+                );
+            }
+
+            setOrder(previous => ({
+                ...previous,
+                shipping: response.shipping
+            }));
+
+            setMessage(
+                response.message || 'Pickup requested successfully.'
+            );
+
+            onUpdated?.();
+        } catch (error) {
+            setShippingError(getErrorMessage(error));
+
+            // Refresh because Shiprocket may have accepted
+            // the request even if our API returned an error.
+            try {
+                const refreshed = await getAdminOrderDetailsApi(
+                    order._id
+                );
+
+                if (refreshed.success && refreshed.order) {
+                    setOrder(refreshed.order);
+                }
+            } catch {
+                // Keep original error.
+            }
+        } finally {
+            pickupLock.current = false;
+            setRequestingPickup(false);
+        }
+    };
+
+
+    const handleGenerateManifest = async () => {
+        if (
+            !order?.shipping?.pickupRequestedAt ||
+            !order?.shipping?.awbCode ||
+            order.shipping.bookingStatus !== 'Created' ||
+            generatingManifest ||
+            manifestLock.current
+        ) return;
+
+        manifestLock.current = true;
+        setGeneratingManifest(true);
+        setShippingError('');
+
+        try {
+            const response = await generateOrderManifestApi(order._id);
+
+            console.log('Shiprocket Manifest Response:', response);
+
+            if (!response.success || !response.manifestUrl) {
+                throw new Error(
+                    response.error || 'Unable to generate manifest'
+                );
+            }
+
+            setOrder(previous => ({
+                ...previous,
+                shipping: response.shipping
+            }));
+
+            setMessage('Shipping manifest generated successfully.');
+            onUpdated?.();
+        } catch (error) {
+            setShippingError(getErrorMessage(error));
+        } finally {
+            manifestLock.current = false;
+            setGeneratingManifest(false);
+        }
+    };
+
+
+    const handleRefreshTracking = async () => {
+        if (!order?._id || !order.shipping?.awbCode || trackingLoading) {
+            return;
+        }
+
+        setTrackingLoading(true);
+        setTrackingError('');
+
+        try {
+            const response = await getOrderShippingTrackingApi(order._id);
+
+            console.log('Shiprocket Tracking Response:', response);
+
+            if (!response.success) {
+                throw new Error(
+                    response.error || 'Unable to fetch tracking'
+                );
+            }
+
+            setTrackingData(response);
+        } catch (error) {
+            setTrackingError(getErrorMessage(error));
+        } finally {
+            setTrackingLoading(false);
+        }
+    };
+
+    const handleCancelShipment = async () => {
+        if (!order?.shipping?.awbCode) return;
+
+        const confirmed = window.confirm(
+            'Cancel this Shiprocket shipment?'
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const response = await cancelOrderShipmentApi(order._id);
+
+            console.log('SHIPROCKET CANCEL RESPONSE:', response);
+
+            if (!response.success) {
+                throw new Error(
+                    response.error || 'Cancellation request failed'
+                );
+            }
+
+            setMessage(
+                'Cancellation requested. Awaiting Shiprocket confirmation.'
+            );
+        } catch (error) {
+            setShippingError(getErrorMessage(error));
+        }
+    };
+
+
     const address = order?.shippingAddress || {};
     const nextStatus = allowedNextStatus[order?.status];
     const needsReview =
@@ -635,7 +923,11 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
                                     </div>
 
                                     <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                                        Awaiting Packing
+                                        {order.shipping?.awbCode
+                                            ? 'AWB Assigned'
+                                            : order.shipping?.shipmentId
+                                                ? 'Shipment Created'
+                                                : 'Awaiting Packing'}
                                     </span>
                                 </div>
 
@@ -922,7 +1214,7 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
                                                         </div>
                                                     )}
 
-                                                    <button
+                                                    {/* <button
                                                         type="button"
                                                         onClick={() => {
                                                             console.log('AWB Assignment Check:', {
@@ -945,7 +1237,55 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
                                                             : needsReview
                                                                 ? 'AWB Assignment Requires Review'
                                                                 : 'Assign Courier & Generate AWB'}
-                                                    </button>
+                                                    </button> */}
+
+                                                    {needsReview ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleCheckAwbStatus}
+                                                            disabled={checkingAwb}
+                                                            className="mt-5 w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                                                        >
+                                                            {checkingAwb
+                                                                ? 'Checking Shiprocket...'
+                                                                : 'Check AWB Status'}
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleAssignAwb}
+                                                            disabled={
+                                                                !selectedCourierId ||
+                                                                assigningAwb ||
+                                                                order.shipping?.bookingStatus !== 'Created'
+                                                            }
+                                                            className="mt-5 w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                                                        >
+                                                            {assigningAwb
+                                                                ? 'Assigning AWB...'
+                                                                : 'Assign Courier & Generate AWB'}
+                                                        </button>
+                                                    )}
+                                                    {needsReview && awbCheckResult?.awbAssigned === false && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleRecoverAwb}
+                                                            disabled={recoveringAwb}
+                                                            className="mt-3 w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                                                        >
+                                                            {recoveringAwb
+                                                                ? 'Recovering...'
+                                                                : 'Resolve Issue & Enable AWB Retry'}
+                                                        </button>
+                                                    )}
+                                                    {awbCheckResult && (
+                                                        <p className="mt-3 text-xs font-medium text-gray-700">
+                                                            {awbCheckResult.awbAssigned
+                                                                ? `Existing AWB: ${awbCheckResult.remote?.awbCode}`
+                                                                : 'No AWB returned. The shipment still requires reconciliation before retrying.'}
+                                                        </p>
+                                                    )}
+
                                                     {needsReview ? (
                                                         <button
                                                             type="button"
@@ -981,6 +1321,224 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
                                                     )}
                                                 </div>
                                             )}
+
+
+                                        {order.shipping?.awbCode &&
+                                            order.shipping?.labelUrl && (
+                                                <div className="rounded-xl border border-gray-200 bg-white p-5">
+
+                                                    <h4 className="text-sm font-bold text-[#222222]">
+                                                        Courier Pickup
+                                                    </h4>
+
+                                                    {order.shipping.pickupRequestedAt ? (
+                                                        <div className="mt-3 space-y-2">
+                                                            <p className="text-sm font-semibold text-green-700">
+                                                                Pickup Requested Successfully
+                                                            </p>
+
+                                                            <p className="text-xs text-gray-600">
+                                                                Requested on: {
+                                                                    new Date(
+                                                                        order.shipping.pickupRequestedAt
+                                                                    ).toLocaleString('en-IN')
+                                                                }
+                                                            </p>
+
+                                                            {order.shipping.pickupScheduledAt && (
+                                                                <p className="text-xs text-gray-600">
+                                                                    Scheduled for: {
+                                                                        new Date(
+                                                                            order.shipping.pickupScheduledAt
+                                                                        ).toLocaleString('en-IN')
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <p className="mt-2 text-xs text-gray-500">
+                                                                Ensure the package is packed and
+                                                                its shipping label is attached.
+                                                            </p>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleRequestPickup}
+                                                                disabled={
+                                                                    requestingPickup ||
+                                                                    order.shipping.bookingStatus !== 'Created'
+                                                                }
+                                                                className="mt-4 w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                            >
+                                                                {requestingPickup
+                                                                    ? 'Requesting Pickup...'
+                                                                    : 'Request Courier Pickup'}
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+
+
+                                        {order.shipping?.pickupRequestedAt && (
+                                            <div className="rounded-xl border border-gray-200 bg-white p-5">
+                                                <h4 className="text-sm font-bold text-[#222222]">
+                                                    Shipping Manifest
+                                                </h4>
+
+                                                {order.shipping.manifestUrl ? (
+                                                    <div className="mt-4">
+                                                        <p className="mb-3 text-xs font-medium text-green-700">
+                                                            Manifest Generated Successfully
+                                                        </p>
+
+                                                        <a
+                                                            href={order.shipping.manifestUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="block w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-center text-sm font-bold text-white"
+                                                        >
+                                                            View / Print Manifest
+                                                        </a>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleGenerateManifest}
+                                                        disabled={
+                                                            generatingManifest ||
+                                                            order.shipping.bookingStatus !== 'Created'
+                                                        }
+                                                        className="mt-4 w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+                                                    >
+                                                        {generatingManifest
+                                                            ? 'Generating Manifest...'
+                                                            : 'Generate Shipping Manifest'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+
+
+
+                                        {order.shipping?.awbCode && (
+                                            <div className="rounded-xl border border-gray-200 bg-white p-5">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div>
+                                                        <h4 className="text-sm font-bold text-[#222222]">
+                                                            Shipment Tracking
+                                                        </h4>
+                                                        <p className="mt-1 text-xs text-gray-500">
+                                                            AWB: {order.shipping.awbCode}
+                                                        </p>
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleRefreshTracking}
+                                                        disabled={trackingLoading}
+                                                        className="rounded-lg bg-[#BF8F5F] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                                    >
+                                                        {trackingLoading ? 'Checking...' : 'Refresh Tracking'}
+                                                    </button>
+                                                </div>
+
+                                                {trackingError && (
+                                                    <p className="mt-3 text-xs text-red-600">
+                                                        {trackingError}
+                                                    </p>
+                                                )}
+
+                                                {trackingData && (
+                                                    <div className="mt-5 space-y-4">
+                                                        <div className="rounded-xl bg-[#F9F6F2] p-4">
+                                                            <p className="text-xs text-gray-500">
+                                                                Current Status
+                                                            </p>
+
+                                                            <p className="mt-1 text-base font-bold text-[#222222]">
+                                                                {trackingData.tracking?.shipmentStatus ||
+                                                                    'Awaiting Courier Update'}
+                                                            </p>
+
+                                                            {trackingData.tracking?.courierName && (
+                                                                <p className="mt-1 text-xs text-gray-600">
+                                                                    {trackingData.tracking.courierName}
+                                                                </p>
+                                                            )}
+
+                                                            {trackingData.tracking?.estimatedDeliveryAt && (
+                                                                <p className="mt-2 text-xs text-gray-600">
+                                                                    Estimated Delivery: {
+                                                                        new Date(
+                                                                            trackingData.tracking.estimatedDeliveryAt
+                                                                        ).toLocaleString('en-IN')
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                        </div>
+
+                                                        {trackingData.tracking?.trackingUrl &&
+                                                            trackingData.tracking.trackingUrl.startsWith('https://') && (
+                                                                <a
+                                                                    href={trackingData.tracking.trackingUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="block text-sm font-semibold text-[#BF8F5F] underline"
+                                                                >
+                                                                    Track on Courier Website
+                                                                </a>
+                                                            )}
+
+                                                        <div>
+                                                            <h5 className="mb-3 text-sm font-bold text-[#222222]">
+                                                                Tracking History
+                                                            </h5>
+
+                                                            {trackingData.tracking?.events?.length > 0 ? (
+                                                                <div className="space-y-4 border-l-2 border-[#BF8F5F] pl-4">
+                                                                    {trackingData.tracking.events.map((event, index) => (
+                                                                        <div key={index}>
+                                                                            <p className="text-sm font-semibold text-[#222222]">
+                                                                                {event.activity || event.status}
+                                                                            </p>
+
+                                                                            {event.location && (
+                                                                                <p className="text-xs text-gray-500">
+                                                                                    {event.location}
+                                                                                </p>
+                                                                            )}
+
+                                                                            {event.date && (
+                                                                                <p className="text-xs text-gray-400">
+                                                                                    {new Date(event.date).toLocaleString('en-IN')}
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-xs text-gray-500">
+                                                                    {trackingData.message ||
+                                                                        'No tracking events available yet.'}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={handleCancelShipment}
+                                            className="rounded-xl border border-red-300 px-4 py-3 font-semibold text-red-600"
+                                        >
+                                            Cancel Shiprocket Shipment
+                                        </button>
+
+
                                         {needsReview && (
                                             <p className="mt-2 text-xs text-amber-700">
                                                 Previous AWB attempt needs verification.
@@ -1002,9 +1560,40 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
                                                     AWB: {order.shipping.awbCode}
                                                 </p>
 
-                                                <p className="mt-3 text-xs text-green-700">
-                                                    Next: Generate shipping label and request pickup.
-                                                </p>
+
+                                                <div className="mt-5 border-t border-green-200 pt-4">
+                                                    {order.shipping.labelUrl ? (
+                                                        <div className="space-y-3">
+                                                            <p className="text-sm font-bold text-green-700">
+                                                                Shipping Label Ready
+                                                            </p>
+
+                                                            <a
+                                                                href={order.shipping.labelUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="block w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-center text-sm font-bold text-white"
+                                                            >
+                                                                View / Print Shipping Label
+                                                            </a>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleGenerateLabel}
+                                                            disabled={
+                                                                generatingLabel ||
+                                                                order.shipping.bookingStatus !== 'Created'
+                                                            }
+                                                            className="w-full rounded-xl bg-[#BF8F5F] px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            {generatingLabel
+                                                                ? 'Generating Shipping Label...'
+                                                                : 'Generate Shipping Label'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
                                             </div>
                                         )}
 
@@ -1064,7 +1653,7 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
 
 
                                 {/* ADD THIS HERE */}
-                                {order.shipping?.shipmentId && (
+                                {/* {order.shipping?.shipmentId && (
                                     <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
                                         <p className="text-sm font-bold text-green-700">
                                             Shiprocket Shipment Created
@@ -1082,7 +1671,7 @@ function OrderDetailsModal({ orderId, onClose, onUpdated }) {
                                             Next: Select Courier & Assign AWB
                                         </p>
                                     </div>
-                                )}
+                                )} */}
                             </section>
                         )}
 

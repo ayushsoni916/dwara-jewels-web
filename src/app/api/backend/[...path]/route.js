@@ -177,6 +177,26 @@ const routes = [
             /^admin\/orders\/[a-f\d]{24}\/shipping\/tracking$/i,
         requiresAuth: true,
     },
+    {
+        method: 'GET',
+        pattern: /^admin\/orders\/[a-f\d]{24}\/shipping\/awb-status$/i,
+        requiresAuth: true
+    },
+    {
+        method: 'POST',
+        pattern: /^admin\/orders\/[a-f\d]{24}\/shipping\/awb-recover$/i,
+        requiresAuth: true
+    },
+    {
+        method: 'GET',
+        pattern: /^admin\/orders\/[a-f\d]{24}\/shipping\/tracking$/i,
+        requiresAuth: true
+    },
+    {
+        method: 'POST',
+        pattern: /^admin\/orders\/[a-f\d]{24}\/shipping\/cancel$/i,
+        requiresAuth: true
+    },
 
 
 ];
