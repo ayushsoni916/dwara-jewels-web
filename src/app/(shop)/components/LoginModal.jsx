@@ -153,7 +153,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }) {
         });
     };
 
-    const handleOtpChange = (index, value) => {
+    const handleOtpChange = (index, value) => { 
         const digits = value.replace(/\D/g, '').slice(0, 6);
         const start = digits.length === 6 ? 0 : index;
 
