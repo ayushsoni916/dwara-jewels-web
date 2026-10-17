@@ -1,56 +1,98 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import ProductFilterSidebar from './components/ProductFilterSidebar';
+import MobileFilter from './components/MobileFilter';
+import { fetchProductApi, fetchCategoryApi } from '../../api/productApi';
+import serverClient from '../../api/serverClient';
 
 // --- Server-Side Data Fetching ---
 // --- Server-Side Data Fetching ---
-async function getCategoryPageData(searchParams) {
+
+const serverApiClient = {
+    get: async (path, options = {}) => {
+        const query = new URLSearchParams();
+
+        Object.entries(options.params || {}).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                query.set(key, String(value));
+            }
+        });
+
+        const endpoint = `${path}${query.size ? `?${query}` : ''}`;
+
+        return serverClient.request(endpoint, {
+            method: 'GET',
+            cache: 'no-store',
+        });
+    },
+};
+
+async function getCategoryPageData(searchParams = {}) {
+    const params = {};
+
+    const categoryId = searchParams.categoryId || searchParams.category;
+    const collectionId = searchParams.collectionId || searchParams.collection;
+
+    if (categoryId) params.category = categoryId;
+    if (collectionId) params.collection = collectionId;
+
+    if (searchParams.gender) {
+        params.gender = searchParams.gender;
+    }
+
+    if (searchParams.search) {
+        params.search = searchParams.search;
+    }
+
+    if (searchParams.isNewArrival === 'true') {
+        params.isNewArrival = true;
+    }
+
+    if (searchParams.luxe === 'true' || searchParams.isLuxe === 'true') {
+        params.luxe = true;
+    } else {
+        params.luxe = false;
+    }
+
+    // Existing sidebar filters
+    for (const key of [
+        'subCategory',
+        'metal',
+        'stone',
+        'size',
+        'minPrice',
+        'maxPrice',
+    ]) {
+        if (searchParams[key]) {
+            params[key] = searchParams[key];
+        }
+    }
+
     try {
-        // 1. Extract ALL possible routing parameters (Added metal, stone, size)
-        const categoryId = searchParams?.category || '';
-        const subCategory = searchParams?.subCategory || '';
-        const collectionId = searchParams?.collection || '';
-        const searchQuery = searchParams?.search || '';
-        const metal = searchParams?.metal || '';
-        const stone = searchParams?.stone || '';
-        const size = searchParams?.size || '';
-        const minPrice = searchParams?.minPrice || '';
-        const maxPrice = searchParams?.maxPrice || '';
-
-        // 2. Build query string for your backend API
-        const queryParams = new URLSearchParams();
-        if (categoryId) queryParams.append('category', categoryId);
-        if (subCategory) queryParams.append('subCategory', subCategory);
-        if (collectionId) queryParams.append('collection', collectionId);
-        if (searchQuery) queryParams.append('search', searchQuery);
-
-        if (metal) queryParams.append('metal', metal);
-        if (stone) queryParams.append('stone', stone);
-        if (size) queryParams.append('size', size);
-        if (minPrice) queryParams.append('minPrice', minPrice);
-        if (maxPrice) queryParams.append('maxPrice', maxPrice);
-
-        // Force luxe to false to only show normal products on this page
-        queryParams.append('luxe', 'false');
-
-        // Fetch filtered products and categories in parallel
-        const [productsRes, categoriesRes] = await Promise.all([
-            fetch(`https://dwarajewels.in/api/product?${queryParams.toString()}`, { cache: 'no-store' }),
-            fetch(`https://dwarajewels.in/api/category?type=normal`, { next: { revalidate: 3600 } })
+        const [productsData, categoriesData] = await Promise.all([
+            fetchProductApi(params, serverApiClient),
+            fetchCategoryApi(
+                params.luxe ? 'luxe' : 'normal',
+                serverApiClient
+            ),
         ]);
 
-        const productsData = productsRes.ok ? await productsRes.json() : { products: [] };
-        const categoriesData = categoriesRes.ok ? await categoriesRes.json() : { categories: [] };
-
         return {
-            products: productsData.products || [],
-            categories: categoriesData.categories || []
+            products: productsData?.products || [],
+            categories: categoriesData?.categories || [],
+            totalCount: productsData?.count ?? productsData?.products?.length ?? 0,
         };
     } catch (error) {
-        console.error("Error fetching category page data:", error);
-        return { products: [], categories: [] };
+        console.error('Category products error:', error);
+
+        return {
+            products: [],
+            categories: [],
+            totalCount: 0,
+        };
     }
 }
+
 
 // --- Dynamic SEO Metadata ---
 export async function generateMetadata({ searchParams }) {
@@ -68,7 +110,7 @@ export async function generateMetadata({ searchParams }) {
 
 export default async function CategoryPage({ searchParams }) {
     const resolvedSearchParams = await searchParams;
-    const { products, categories } = await getCategoryPageData(resolvedSearchParams);
+    const { products, categories, totalCount } = await getCategoryPageData(resolvedSearchParams);
 
     const img1 = "/images/CatBanner.webp";
 
@@ -76,12 +118,20 @@ export default async function CategoryPage({ searchParams }) {
         <div className="flex flex-col lg:flex-row min-h-screen gap-8 lg:gap-10 horizontal-padding mt-16 md:mt-24 lg:mt-[100px] relative">
 
             {/* Filter Sidebar (Server/Client Hybrid wrapper) */}
-            <div className="w-full lg:w-[285px] shrink-0">
+            <div className="hidden lg:block lg:w-[285px] shrink-0">
                 <ProductFilterSidebar
                     products={products}
                     categories={categories}
-                    currentCategory={resolvedSearchParams?.category}
-                    currentCollection={resolvedSearchParams?.collection}
+                    currentCategory={
+                        resolvedSearchParams?.categoryId ||
+                        resolvedSearchParams?.category ||
+                        ''
+                    }
+                    currentCollection={
+                        resolvedSearchParams?.collectionId ||
+                        resolvedSearchParams?.collection ||
+                        ''
+                    }
                 />
             </div>
 
@@ -106,9 +156,28 @@ export default async function CategoryPage({ searchParams }) {
                     <h2 className="heading-main">
                         {resolvedSearchParams?.search ? `Results for "${resolvedSearchParams.search}"` : "Our Products"}
                     </h2>
-                    <div className="flex justify-between items-center mt-4 lg:mt-[36px]">
-                        <p className="heading-des text-gray-500">Showing {products.length} Products</p>
+
+                    <div className="flex justify-between items-center gap-3 mt-4 lg:mt-[36px]">
+                        <p className="heading-des text-gray-500">
+                            Showing {totalCount} Products
+                        </p>
+
+                        <MobileFilter
+                            products={products}
+                            categories={categories}
+                            currentCategory={
+                                resolvedSearchParams?.categoryId ||
+                                resolvedSearchParams?.category ||
+                                ''
+                            }
+                            currentCollection={
+                                resolvedSearchParams?.collectionId ||
+                                resolvedSearchParams?.collection ||
+                                ''
+                            }
+                        />
                     </div>
+
                     <div className="bg-[#BF8F5F] h-px w-full mt-4 lg:mt-[28px]" />
                 </div>
 
@@ -153,9 +222,25 @@ export default async function CategoryPage({ searchParams }) {
                                     </div>
                                 </div>
 
-                                <p className="title-main font-bold mt-2 lg:mt-[15px] text-sm lg:text-base">
-                                    {product.price?.currency === 'USD' ? '$' : 'Rs. '}{product.price?.finalPrice?.toLocaleString()}
-                                </p>
+
+                                <div className="flex flex-wrap items-center gap-2 mt-2 lg:mt-[15px]">
+                                    {product.price?.compareAtPrice != null &&
+                                        product.price?.finalPrice != null &&
+                                        Number(product.price.compareAtPrice) >
+                                        Number(product.price.finalPrice) && (
+                                            <span className="text-gray-400 font-normal line-through text-[10px] sm:text-xs">
+                                                {product.price?.currency === 'USD' ? '$' : 'Rs. '}
+                                                {Number(product.price.compareAtPrice).toLocaleString('en-IN')}
+                                            </span>
+                                        )}
+
+                                    <span className="title-main font-bold text-sm lg:text-base text-[#222222]">
+                                        {product.price?.finalPrice != null
+                                            ? `${product.price?.currency === 'USD' ? '$' : 'Rs. '}${Number(product.price.finalPrice).toLocaleString('en-IN')}`
+                                            : '—'}
+                                    </span>
+                                </div>
+
                             </div>
                         ))}
                     </div>

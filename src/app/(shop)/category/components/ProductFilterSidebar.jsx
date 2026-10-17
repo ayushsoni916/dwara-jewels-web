@@ -31,17 +31,35 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
     // --- URL Update Handlers ---
     const handleFilterClick = (key, value) => {
         const params = new URLSearchParams(searchParams.toString());
-        if (params.get(key) === value) params.delete(key);
-        else params.set(key, value);
-        
-        if (key === 'category') params.delete('subCategory');
+
+        if (key === 'category') {
+            const selectedCategory =
+                params.get('category') || params.get('categoryId');
+
+            // Remove old alias so it can't override the new selection
+            params.delete('categoryId');
+            params.delete('subCategory');
+
+            if (selectedCategory === value) {
+                params.delete('category');
+            } else {
+                params.set('category', value);
+            }
+        } else {
+            if (params.get(key) === value) {
+                params.delete(key);
+            } else {
+                params.set(key, value);
+            }
+        }
+
         router.push(`/category?${params.toString()}`, { scroll: false });
     };
 
     // Only update the URL when the user STOPS dragging the slider
     const handlePriceCommit = () => {
         const params = new URLSearchParams(searchParams.toString());
-        
+
         if (priceRange[0] > MIN_PRICE) params.set('minPrice', priceRange[0]);
         else params.delete('minPrice');
 
@@ -80,13 +98,13 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
 
     return (
         <aside className="w-full lg:max-w-[280px] lg:pr-8 space-y-10 font-sans">
-            
+
             {/* Categories */}
             <div>
                 <h3 className="text-[#222222] text-[20px] font-bold leading-tight mb-4">Categories</h3>
                 <ul className="space-y-3">
                     {categories?.map((cat) => (
-                        <li 
+                        <li
                             key={cat._id}
                             onClick={() => handleFilterClick('category', cat._id)}
                             className={`cursor-pointer transition-all flex items-center gap-3 
@@ -103,19 +121,19 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
             {/* Price Slider */}
             <div>
                 <h3 className="text-[#222222] text-[20px] font-bold leading-tight mb-6">Price</h3>
-                
+
                 <div className="relative w-full h-1 mt-6 mb-4">
                     {/* Background Track (Gray) */}
                     <div className="absolute top-0 left-0 w-full h-1 bg-[#E5E7EB] rounded-full"></div>
-                    
+
                     {/* Active Track (Gold) */}
-                    <div 
+                    <div
                         className="absolute top-0 h-1 bg-[#C29B70] rounded-full"
                         style={{ left: `${percent1}%`, right: `${100 - percent2}%` }}
                     ></div>
 
                     {/* Min Price Thumb */}
-                    <input 
+                    <input
                         type="range"
                         min={MIN_PRICE}
                         max={MAX_PRICE}
@@ -131,7 +149,7 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
                     />
 
                     {/* Max Price Thumb */}
-                    <input 
+                    <input
                         type="range"
                         min={MIN_PRICE}
                         max={MAX_PRICE}
@@ -146,10 +164,10 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
                         [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-[#C29B70] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-[#C29B70] [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:pointer-events-auto"
                     />
                 </div>
-                
+
                 {/* Formatting with toLocaleString gives you the comma separators like $ 5,000 */}
                 <p className="text-[14px] text-gray-600 mt-5">
-                    Price: $ {priceRange[0].toLocaleString()} - $ {priceRange[1].toLocaleString()}
+                    Price: Rs. {priceRange[0].toLocaleString()} - Rs. {priceRange[1].toLocaleString()}
                 </p>
             </div>
             <hr className="border-gray-100" />
@@ -161,7 +179,7 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
                         <h3 className="text-[#222222] text-[20px] font-bold leading-tight mb-4">Type</h3>
                         <ul className="space-y-3">
                             {validSubCategories.map((sub) => (
-                                <li 
+                                <li
                                     key={sub}
                                     onClick={() => handleFilterClick('subCategory', sub)}
                                     className="flex items-center gap-3 cursor-pointer group"
@@ -171,7 +189,7 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
                                     >
                                         {activeSubCat === sub && (
                                             <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>
                                         )}
                                     </div>
@@ -189,7 +207,7 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
                 <h3 className="text-[#222222] text-[20px] font-bold leading-tight mb-4">Material</h3>
                 <ul className="space-y-3">
                     {MATERIALS.map((metal) => (
-                        <li 
+                        <li
                             key={metal}
                             onClick={() => handleFilterClick('metal', metal)}
                             className="flex items-center gap-3 cursor-pointer group"
@@ -199,7 +217,7 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
                             >
                                 {activeMetal === metal && (
                                     <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                                     </svg>
                                 )}
                             </div>
@@ -217,7 +235,7 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
                         <h3 className="text-[#222222] text-[20px] font-bold leading-tight mb-4">Stones</h3>
                         <ul className="space-y-3">
                             {availableStones.map((stone) => (
-                                <li 
+                                <li
                                     key={stone}
                                     onClick={() => handleFilterClick('stone', stone)}
                                     className="flex items-center gap-3 cursor-pointer group"
@@ -227,7 +245,7 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
                                     >
                                         {activeStone === stone && (
                                             <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>
                                         )}
                                     </div>
@@ -264,7 +282,7 @@ export default function ProductFilterSidebar({ categories = [], products = [], c
 
             {/* Clear Filters */}
             <div className="pt-2">
-                <button 
+                <button
                     onClick={handleClearFilters}
                     className="flex items-center gap-2 text-[13px] font-bold text-[#222222] uppercase tracking-wider hover:text-[#BF8F5F] transition-colors"
                 >

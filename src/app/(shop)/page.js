@@ -8,6 +8,7 @@ import NewArrivalWithCollection from "@/app/(shop)/components/Home/NewArrivalWit
 import OurStory from "@/app/(shop)/components/Home/OurStory";
 import Testimonials from "@/app/(shop)/components/Home/Testimonials";
 import RecentlyViewed from "./components/Home/RecentlyViewed";
+import DilKiBaatBanner from "./components/Home/DilKiBaatBanner";
 
 export default function Home() {
   return (
@@ -15,11 +16,15 @@ export default function Home() {
       <Hero />
       <CategoryGrid />
       <FeaturedProducts />
-      <NewArrivalWithCollection />
+      
+      
       <Collection />
+      <NewArrivalWithCollection />
+      <DilKiBaatBanner />
+      
       <FaqInsight />
       <Testimonials />
-      <CollectionSecond />
+      {/* <CollectionSecond /> */}
       <OurStory />
       <RecentlyViewed/>
     </main>

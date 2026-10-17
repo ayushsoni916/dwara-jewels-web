@@ -11,24 +11,29 @@ import { useAuth } from '../../../../context/AuthContext';
 // Hardcoded core categories with their actual database IDs
 const navCategories = [
     {
-        id: '6966693ce0b407002bea0b10',
+        id: '6acd0a05b2210243220ab66f',
         name: 'Earrings',
-        subcategories: ['Studs', 'Jhumkas', 'Hoops', 'Drops', 'Chandbali']
+        subcategories: ['Upper Piercing Helix', 'Cool Earring For Her', 'Office Earrings', 'Bridal Earrings', 'Minimal Earring','Jhumki']
     },
     {
-        id: '69666926e0b407002bea0b0d',
-        name: 'Necklaces',
-        subcategories: ['Chokers', 'Pendants', 'Chains', 'Mangalsutra']
+        id: '6acd0a20b2210243220ab673',
+        name: 'Chain Pendant',
+        subcategories: ["Bridal Chains", "Daily wears", "Minimal Pendant With Chain", "Mangalsutra"]
     },
     {
-        id: '69666943e0b407002bea0b13',
+        id: '6acd09e9b2210243220ab66b',
         name: 'Rings',
-        subcategories: ['Engagement', 'Solitaire', 'Bands', 'Cocktail']
+        subcategories: ["Bridal Ring", "Propose Ring", "Engagement Ring", "Minimal Ring"]
     },
     {
-        id: '69bbb14e0685b07e948ae4a6',
-        name: 'Bracelets',
-        subcategories: ['Chain', 'Bangle', 'Cuff']
+        id: '6acd0a8db2210243220ab677',
+        name: 'Bracelet',
+        subcategories: ["Daily wears", "Premium Gold Plated", "Mop Bracelets"]
+    },
+    {
+        id: '6acfbe73c0e1a6df28d8b114',
+        name: 'Anklet',
+        subcategories: ["Plain Chain Anklets", "Added Charm Anklets"]
     }
 ];
 
@@ -285,10 +290,10 @@ export default function Navbar() {
                                             {[
                                                 { title: 'Account Information', href: '/account/info', icon: 'User.svg' },
                                                 { title: 'Orders', href: '/account/orders', icon: 'Orders.svg' },
-                                                { title: 'About Us', href: '/about', icon: 'AboutUs.svg' },
-                                                { title: 'Customer Support', href: '/support', icon: 'CustomerSupport.svg' },
-                                                { title: 'Career', href: '/career', icon: 'Career.svg' },
-                                                { title: 'Blog', href: '/blog', icon: 'Blog.svg' },
+                                                { title: 'About Us', href: '/account/about', icon: 'AboutUs.svg' },
+                                                { title: 'Customer Support', href: '/account/support', icon: 'CustomerSupport.svg' },
+                                                // { title: 'Career', href: '/career', icon: 'Career.svg' },
+                                                { title: 'Blog', href: '/account/blog', icon: 'Blog.svg' },
                                             ].map((item) => (
                                                 <Link
                                                     key={item.title}
