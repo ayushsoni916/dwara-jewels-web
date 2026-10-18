@@ -231,6 +231,7 @@ export async function POST(request, { params }) {
         return reply({
             success: true,
             isNewUser: false,
+            token: data.token,
             user: session.user,
             expiresAt,
         });
