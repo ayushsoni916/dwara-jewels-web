@@ -70,9 +70,19 @@ export async function POST(request, { params }) {
         return reply({ success: false, error: 'Not found' }, 404);
     }
 
-    if (!isAllowedOrigin(request)) {
+
+    const origin = request.headers.get('origin');
+
+    // React Native may not send an Origin header.
+    // Temporary launch exception for OTP requests only.
+    const allowMobileOtp =
+        !origin &&
+        !request.headers.get('cookie') &&
+        ['send-otp', 'verify-otp'].includes(action);
+
+    if (!isAllowedOrigin(request) && !allowMobileOtp) {
         console.error('AUTH ORIGIN REJECTED:', {
-            origin: request.headers.get('origin'),
+            origin,
             host: request.headers.get('host'),
         });
 
@@ -81,6 +91,7 @@ export async function POST(request, { params }) {
             error: 'Invalid request origin',
         }, 403);
     }
+
 
     try {
         // Logout
