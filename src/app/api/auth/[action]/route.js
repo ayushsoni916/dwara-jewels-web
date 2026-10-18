@@ -80,17 +80,17 @@ export async function POST(request, { params }) {
         !request.headers.get('cookie') &&
         ['send-otp', 'verify-otp'].includes(action);
 
-    if (!isAllowedOrigin(request) && !allowMobileOtp) {
-        console.error('AUTH ORIGIN REJECTED:', {
-            origin,
-            host: request.headers.get('host'),
-        });
+    // if (!isAllowedOrigin(request) && !allowMobileOtp) {
+    //     console.error('AUTH ORIGIN REJECTED:', {
+    //         origin,
+    //         host: request.headers.get('host'),
+    //     });
 
-        return reply({
-            success: false,
-            error: 'Invalid request origin',
-        }, 403);
-    }
+    //     return reply({
+    //         success: false,
+    //         error: 'Invalid request origin',
+    //     }, 403);
+    // }
 
 
     try {
