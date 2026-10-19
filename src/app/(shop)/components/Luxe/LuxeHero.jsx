@@ -47,17 +47,14 @@ export default function LuxeHero() {
                 </p>
 
                 {/* Button */}
-                <Link
-                    href="#luxe-products"
-                    className="border border-[#E5D3C4]/60 text-white px-10 py-3.5 text-[14px] font-sans hover:bg-[#E5D3C4] hover:text-[#0C0E17] transition-all duration-300 rounded-sm"
-                >
-                    Explore More
-                </Link>
+                <p className="text-[#D6B693] font-serif italic text-sm md:text-lg tracking-[0.15em]">
+                    A Timeless Expression of Elegance
+                </p>
             </div>
 
             {/* 4. Features Section (Corrected for Dark Theme) */}
             <div className="px-4 sm:px-8 lg:px-20 grid grid-cols-2 lg:flex lg:justify-between gap-y-6 gap-x-4 lg:gap-6 relative z-10 pb-12 lg:pb-16">
-                
+
                 {/* Certified */}
                 <div className="gap-3 lg:gap-6 flex items-start sm:items-center lg:items-start">
                     <Image

@@ -46,16 +46,16 @@ export default function LuxeFooter() {
 
             {/* Starry Background Layer */}
             <div className="absolute inset-0 z-0 pointer-events-none mix-blend-screen opacity-50">
-                <Image 
-                    src="/images/Background.png" 
-                    alt="Luxury Starry Background" 
-                    fill 
+                <Image
+                    src="/images/Background.png"
+                    alt="Luxury Starry Background"
+                    fill
                     className="object-cover"
                 />
             </div>
 
             <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-20">
-                
+
                 {/* N E W S L E T T E R */}
                 <div className="border-b border-white/10 mb-14 pb-12 lg:pb-16">
                     <h1 className="text-[#D6B693] font-sans font-semibold tracking-[0.3em] uppercase text-[12px] lg:text-[14px] mb-4 lg:mb-2">
@@ -100,11 +100,11 @@ export default function LuxeFooter() {
                         <div className="space-y-4 text-white/70 font-sans">
                             <div className="flex items-start gap-3">
                                 <Image src="/icons/Loc.svg" alt="Location" width={16} height={16} className="mt-1 brightness-0 invert opacity-70" />
-                                <p className="text-[13px] leading-relaxed">38 A, Vasundhara Colony, Tonk Road, Jaipur - 302018</p>
+                                <p className="text-[13px] leading-relaxed">57A, Gayatri Nagar 2nd, Sanganer, Jaipur, 302029</p>
                             </div>
                             <div className="flex items-center gap-3">
                                 <Image src="/icons/Call.svg" alt="Phone" width={16} height={16} className="brightness-0 invert opacity-70" />
-                                <p className="text-[13px]">+91 99999 99999</p>
+                                <p className="text-[13px]">+91 6377584487</p>
                             </div>
                             <div className="flex items-center gap-3">
                                 <Image src="/icons/Email.svg" alt="Email" width={16} height={16} className="brightness-0 invert opacity-70" />
@@ -113,35 +113,36 @@ export default function LuxeFooter() {
                         </div>
                     </div>
 
+
                     <FooterSection title="Products" links={[
-                        { name: "Earrings", href: "/luxe/category?type=earrings" },
-                        { name: "Necklace", href: "/luxe/category?type=necklace" },
-                        { name: "Bracelet", href: "/luxe/category?type=bracelet" },
-                        { name: "Ring", href: "/luxe/category?type=rings" },
-                        { name: "Men's Jewelry", href: "/luxe/category?type=mens" }
+                        { name: "Earrings", href: "/category?category=6acd0a05b2210243220ab66f&luxe=true" },
+                        { name: "Chain Pendant", href: "/category?category=6acd0a20b2210243220ab673&luxe=true" },
+                        { name: "Rings", href: "/category?category=6acd09e9b2210243220ab66b&luxe=true" },
+                        { name: "Bracelet", href: "/category?category=6acd0a8db2210243220ab677&luxe=true" },
+                        { name: "Anklet", href: "/category?category=6acfbe73c0e1a6df28d8b114&luxe=true" },
                     ]} />
 
                     <FooterSection title="Company" links={[
                         { name: "About Us", href: "/about" },
-                        { name: "Testimonials", href: "/reviews" },
-                        { name: "Best Seller", href: "/best-sellers" },
-                        { name: "Terms & Condition", href: "/terms" }
+                        { name: "Terms & Conditions", href: "/terms-and-conditions" },
+                        { name: "Warranty Policy", href: "/warranty-policy" },
+                        { name: "Return & Exchange Policy", href: "/return-and-exchange-policy" },
+                        { name: "Cancellation Policy", href: "/cancellation-policy" },
+                        { name: "Gemstone Policy", href: "/gemstone-policy" },
                     ]} />
 
                     <FooterSection title="Account" links={[
                         { name: "Orders", href: "/account/orders" },
                         { name: "Wishlist", href: "/account/wishlist" },
-                        { name: "Addresses", href: "/account/address" }
                     ]} />
 
                     <FooterSection title="Support" links={[
-                        { name: "Size Charts", href: "/size-guide" },
-                        { name: "Help Centre", href: "/help" },
-                        { name: "Privacy Policy", href: "/privacy" },
-                        { name: "FAQs", href: "/faqs" }
+                        { name: "FAQs", href: "/faq" },
+                        { name: "Customer Support", href: "/account/support" },
                     ]} />
+
                 </div>
-                
+
                 {/* JAIPUR SKYLINE SECTION (Inverted for Dark Theme) */}
                 <div className="w-full h-auto mt-4 overflow-hidden opacity-30 pointer-events-none">
                     <div className="block lg:hidden w-full relative h-[100px]">
@@ -169,30 +170,101 @@ export default function LuxeFooter() {
             {/* Bottom Bar */}
             <div className="relative z-10 border-t border-white/10 py-6">
                 <div className="max-w-7xl mx-auto px-6 lg:px-20 flex flex-col md:flex-row items-center justify-between gap-4">
+
                     <ul className="flex items-center gap-2 text-[11px] lg:text-[13px] text-white/50 font-sans tracking-wide">
-                        <li><Link href="/privacy" className="hover:text-[#D6B693] transition-colors">Privacy Policy</Link></li>
-                        <li>|</li>
-                        <li><Link href="/terms" className="hover:text-[#D6B693] transition-colors">Terms & Condition</Link></li>
-                        <li>|</li>
-                        <li><Link href="/sitemap" className="hover:text-[#D6B693] transition-colors">Sitemap</Link></li>
-                    </ul>
-                    
-                    <div className="flex items-center gap-6">
-                        {['Wp', 'Insta', 'Fb', 'X'].map((social) => (
-                            <Link href="#" key={social} className="hover:-translate-y-1 transition-transform">
-                                <Image
-                                    src={`/icons/${social}.svg`}
-                                    alt={social}
-                                    width={18}
-                                    height={18}
-                                    className="object-contain brightness-0 invert opacity-60 hover:opacity-100 transition-opacity"
-                                />
+                        <li>
+                            <Link href="/privacy" className="hover:text-[#D6B693] transition-colors">
+                                Privacy Policy
                             </Link>
-                        ))}
+                        </li>
+                        <li>|</li>
+                        <li>
+                            <Link href="/terms-and-conditions" className="hover:text-[#D6B693] transition-colors">
+                                Terms & Conditions
+                            </Link>
+                        </li>
+                        <li>|</li>
+                        <li>
+                            <Link href="/sitemap.xml" className="hover:text-[#D6B693] transition-colors">
+                                Sitemap
+                            </Link>
+                        </li>
+                    </ul>
+
+
+
+                    <div className="flex items-center gap-5 lg:gap-7">
+                        {/* Instagram */}
+                        <a
+                            href="https://www.instagram.com/dwara_jewels"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Dwara Jewels Instagram"
+                            className="hover:opacity-70 transition-opacity"
+                        >
+                            <Image
+                                src="/icons/Insta.svg"
+                                alt="Instagram"
+                                width={24}
+                                height={24}
+                                className="object-contain brightness-0 invert"
+                            />
+                        </a>
+
+                        {/* Google Play Store */}
+                        <a
+                            href="https://play.google.com/store/apps/details?id=com.dwarajewelsapp"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Dwara Jewels on Google Play"
+                            className="text-white hover:opacity-70 transition-opacity"
+                        >
+                            <svg
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M4 2.5L20 12L4 21.5V2.5Z" />
+                                <path d="M4 2.5L14 15.5" />
+                                <path d="M4 21.5L14 8.5" />
+                            </svg>
+                        </a>
+
+                        {/* Apple App Store */}
+                        <a
+                            href="https://apps.apple.com/us/app/dwara-jewels/id6790142702"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Dwara Jewels on the App Store"
+                            className="text-white hover:opacity-70 transition-opacity"
+                        >
+                            <svg
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                <path d="M8 3L17 20" />
+                                <path d="M16 3L7 20" />
+                                <path d="M5 15H19" />
+                            </svg>
+                        </a>
                     </div>
+
                 </div>
             </div>
-            
+
         </footer>
     );
 }

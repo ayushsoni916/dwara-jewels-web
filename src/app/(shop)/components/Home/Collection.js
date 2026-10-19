@@ -11,7 +11,7 @@ const Collection = () => {
             {/* Luxe Collection */}
             <div className="overflow-hidden mb-6 md:mb-10 lg:mb-15">
                 <Link
-                    href="/category?luxe=true"
+                    href="/luxe"
                     className="block w-full h-full"
                 >
                     <img

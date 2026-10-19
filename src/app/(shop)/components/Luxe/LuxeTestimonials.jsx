@@ -2,23 +2,24 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 
+
 const testimonialsData = [
     {
         id: 1,
-        name: "Mateusz Madura",
-        location: "Poland",
-        image: "/images/Jhumkas.webp", // Replace with your ring image
-        story: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.",
+        name: "Ayush",
+        location: "Jaipur",
+        image: "/images/Jhumkas.webp",
+        story: "I absolutely love the elegant design and beautiful detailing of the jewellery. The finish looks premium, and the piece adds just the right touch of sophistication to both traditional and modern outfits. A lovely addition to any jewellery collection.",
     },
     {
         id: 2,
-        name: "Ananya Sharma",
-        location: "India",
+        name: "Anshika",
+        location: "Jaipur",
         image: "/images/Rings.webp",
-        story: "The craftsmanship at Dwara Jewels is unparalleled. I ordered a custom engagement ring and the attention ",
-        secondaryStory: ""
-    }
+        story: "The ring has such a timeless and graceful design. I especially love how delicate yet eye-catching it looks. The craftsmanship and overall presentation make it feel special, whether styled for everyday elegance or a memorable occasion.",
+    },
 ];
+
 
 const LuxeTestimonials = () => {
     const commas = "/icons/Commas.svg";

@@ -1,50 +1,54 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { fetchProductApi } from '../../../api/productApi';
+import serverClient from '../../../api/serverClient';
 
 // --- Server-Side Fetch Function for New Arrivals with Feature Banner ---
-async function getLuxeNewArrivals() {
+
+async function getDiwaliLuxeProducts() {
     try {
-        // Fetching luxe products specifically marked as new arrivals
-        const res = await fetch('https://dwarajewels.in/api/product?limit=6&luxe=true', {
-            next: { revalidate: 3600 }
-        });
+        const data = await fetchProductApi(
+            {
+                collection: '6acd0c96b2210243220ab689',
+                luxe: true,
+                limit: 6,
+            },
+            serverClient
+        );
 
-        if (!res.ok) {
-            throw new Error('Failed to fetch new arrival products');
-        }
-
-        const data = await res.json();
-        return data.products || [];
+        return data?.products || [];
     } catch (error) {
-        console.error("Error fetching luxe new arrivals:", error);
-        return []; 
+        console.error('Diwali Luxe products error:', error);
+        return [];
     }
 }
 
+
 export default async function LuxeNewArrivalsSection() {
-    const products = await getLuxeNewArrivals();
+    const products = await getDiwaliLuxeProducts();
 
     if (!products || products.length === 0) return null;
 
     return (
         <section className="relative w-full py-20 px-6 lg:px-20 overflow-hidden bg-transparent">
-            
+
             <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-12 items-start">
 
                 {/* Left Side: Header & 3x2 Grid */}
                 <div className="lg:w-[70%] flex flex-col">
-                    
+
                     {/* Header Section */}
                     <div className="mb-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                         <div>
                             <span className="text-[#D6B693] font-sans font-semibold text-[13px] uppercase tracking-[0.2em] block mb-2">
-                                NEW ARRIVAL
+                                DIWALI LUXE COLLECTION
                             </span>
                             <h2 className="font-serif font-normal text-white text-[32px] sm:text-[40px] leading-tight">
-                                Beauty At Its Finest
+                                Celebrate the Festival of Elegance
                             </h2>
                             <p className="text-white/50 font-sans text-sm mt-1">
-                                Discover our handpicked selection of exquisite jewelry pieces, curated
+                                Discover exquisite jewellery inspired by the warmth,
+                                beauty and brilliance of Diwali.
                             </p>
                         </div>
 
@@ -69,7 +73,7 @@ export default async function LuxeNewArrivalsSection() {
                                     {/* Gradient Border Wrapper */}
                                     <div className="relative aspect-square w-full mb-4 bg-gradient-to-b from-[#D6B693] to-transparent p-[0.5px]">
                                         <div className="relative w-full h-full bg-[#0C0E17] overflow-hidden flex items-center justify-center">
-                                            <Link href={`/product/${product._id}`} className="w-full h-full relative block">
+                                            <Link href={`/luxe/product/${product._id}`} className="w-full h-full relative block">
                                                 <Image
                                                     src={imageUrl}
                                                     alt={product.title}
@@ -124,7 +128,7 @@ export default async function LuxeNewArrivalsSection() {
                     <div className="absolute inset-0 z-0 overflow-hidden">
                         <Image
                             src="/images/LuxeCol.jpg"
-                            alt="Minimal Me Collection"
+                            alt="Diwali Luxe Collection"
                             fill
                             className="object-cover transition-transform duration-700 group-hover:scale-105"
                         />
@@ -142,16 +146,17 @@ export default async function LuxeNewArrivalsSection() {
                     {/* Bottom Banner Content */}
                     <div className="relative z-10 flex flex-col">
                         <h3 className="font-serif text-white text-3xl mb-3">
-                            Minimal Me
+                            Diwali Luxe Collection
                         </h3>
                         <p className="text-gray-300 font-sans text-xs leading-relaxed mb-6">
-                            Introducing our new minimalist collection. Suitable for the active yet elegant.
+                            Celebrate the spirit of Diwali with timeless jewellery
+                            designed to bring elegance and sparkle to every celebration.
                         </p>
                         <Link
-                            href="/luxe/category?collection=minimal"
+                            href="/luxe/category?collection=6acd0c96b2210243220ab689"
                             className="text-[#E5D3C4] font-bold uppercase text-xs tracking-widest hover:text-white transition-colors flex items-center gap-2 w-fit"
                         >
-                            <span>Explore</span>
+                            <span>Explore Collection</span>
                             <span>→</span>
                         </Link>
                     </div>

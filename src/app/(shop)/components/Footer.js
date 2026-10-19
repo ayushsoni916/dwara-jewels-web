@@ -98,11 +98,11 @@ export default function Footer() {
                         <div className="space-y-4">
                             <div className="flex items-start gap-3">
                                 <Image src="/icons/Loc.svg" alt="Location" width={16} height={16} className="mt-1" />
-                                <p className="text-[13px] lg:text-[15px]">38 A, Vasundhara Colony, Tonk Road, Jaipur - 302018</p>
+                                <p className="text-[13px] lg:text-[15px]">57A, Gayatri Nagar 2nd, Sanganer, Jaipur, 302029</p>
                             </div>
                             <div className="flex items-center gap-3">
                                 <Image src="/icons/Call.svg" alt="Phone" width={16} height={16} />
-                                <p className="text-[13px] lg:text-[15px]">+91 99999 99999</p>
+                                <p className="text-[13px] lg:text-[15px]">+91 6377584487</p>
                             </div>
                             <div className="flex items-center gap-3">
                                 <Image src="/icons/Email.svg" alt="Email" width={16} height={16} />
@@ -111,33 +111,41 @@ export default function Footer() {
                         </div>
                     </div>
 
+
+
                     <FooterSection title="Products" links={[
-                        { name: "Earrings", href: "/category/earrings" },
-                        { name: "Necklace", href: "/category/necklace" },
-                        { name: "Bracelet", href: "/category/bracelet" },
-                        { name: "Ring", href: "/category/rings" },
-                        { name: "Men's Jewelry", href: "/category/mens" }
+                        { name: "Earrings", href: "/category?category=6acd0a05b2210243220ab66f" },
+                        { name: "Chain Pendant", href: "/category?category=6acd0a20b2210243220ab673" },
+                        { name: "Rings", href: "/category?category=6acd09e9b2210243220ab66b" },
+                        { name: "Bracelet", href: "/category?category=6acd0a8db2210243220ab677" },
+                        { name: "Anklet", href: "/category?category=6acfbe73c0e1a6df28d8b114" },
                     ]} />
+
+
+
 
                     <FooterSection title="Company" links={[
                         { name: "About Us", href: "/about" },
-                        { name: "Testimonials", href: "/reviews" },
-                        { name: "Best Seller", href: "/best-sellers" },
-                        { name: "Terms & Condition", href: "/terms" }
+                        { name: "Terms & Conditions", href: "/terms-and-conditions" },
+                        { name: "Warranty Policy", href: "/warranty-policy" },
+                        { name: "Return & Exchange Policy", href: "/return-and-exchange-policy" },
+                        { name: "Cancellation Policy", href: "/cancellation-policy" },
+                        { name: "Gemstone Policy", href: "/gemstone-policy" },
                     ]} />
+
 
                     <FooterSection title="Account" links={[
                         { name: "Orders", href: "/account/orders" },
                         { name: "Wishlist", href: "/account/wishlist" },
-                        { name: "Addresses", href: "/account/address" }
+                        // { name: "Addresses", href: "/account/address" }
                     ]} />
 
+
                     <FooterSection title="Support" links={[
-                        { name: "Size Charts", href: "/size-guide" },
-                        { name: "Help Centre", href: "/help" },
-                        { name: "Privacy Policy", href: "/privacy" },
-                        { name: "FAQs", href: "/faqs" }
+                        { name: "FAQs", href: "/faq" },
+                        { name: "Customer Support", href: "/account/support" },
                     ]} />
+
                 </div>
                 {/* <img src="/images/FooterWeb.svg" alt="Dwara Jewels Icon" className="w-full h-full object-contain" /> */}
                 {/* JAIPUR SKYLINE SECTION */}
@@ -169,11 +177,97 @@ export default function Footer() {
 
             <div className="mt-10.25 text-center  flex items-center justify-between">
                 <ul className="space-y-2 text-[9px] lg:text-[16px] text-[#222222] font-serif flex gap-1">
-                    <li><a href="/shipping" className="hover:text-brand-gold">Privacy Policy  |</a></li>
-                    <li><a href="/returns" className="hover:text-brand-gold">Terms & Condition  |</a></li>
-                    <li><a href="/contact" className="hover:text-brand-gold">Sitemap</a></li>
+
+                    <li>
+                        <Link href="/privacy" className="hover:text-brand-gold">
+                            Privacy Policy |
+                        </Link>
+                    </li>
+                    <li>
+                        <Link href="/terms-and-conditions" className="hover:text-brand-gold">
+                            Terms & Conditions |
+                        </Link>
+                    </li>
+                    <li>
+                        <Link href="/sitemap.xml" className="hover:text-brand-gold">
+                            Sitemap
+                        </Link>
+                    </li>
+
                 </ul>
-                <div className="flex gap-4 lg:gap-8.25">
+
+
+                <div className="flex items-center gap-5 lg:gap-7">
+                    {/* Instagram */}
+                    <a
+                        href="https://www.instagram.com/dwara_jewels?utm_source=qr&mdxt=MXRtb3V1YWh4MWh0cA=="
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Dwara Jewels Instagram"
+                        className="hover:opacity-70 transition-opacity"
+                    >
+                        <Image
+                            src="/icons/Insta.svg"
+                            alt="Instagram"
+                            width={24}
+                            height={24}
+                            className="object-contain"
+                        />
+                    </a>
+
+                    {/* Google Play Store */}
+                    <a
+                        href="https://play.google.com/store/apps/details?id=com.dwarajewelsapp"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Dwara Jewels on Google Play"
+                        className="text-[#BF8F5F] hover:opacity-70 transition-opacity"
+                    >
+                        <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                        >
+                            <path d="M4 2.5L20 12L4 21.5V2.5Z" />
+                            <path d="M4 2.5L14 15.5" />
+                            <path d="M4 21.5L14 8.5" />
+                        </svg>
+                    </a>
+
+                    {/* Apple App Store */}
+                    <a
+                        href="https://apps.apple.com/us/app/dwara-jewels/id6790142702"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Dwara Jewels on the App Store"
+                        className="text-[#BF8F5F] hover:opacity-70 transition-opacity"
+                    >
+                        <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                        >
+                            <path d="M8 3L17 20" />
+                            <path d="M16 3L7 20" />
+                            <path d="M5 15H19" />
+                        </svg>
+                    </a>
+                </div>
+
+
+                {/* <div className="flex gap-4 lg:gap-8.25">
                     <Image
                         src="/icons/Wp.svg"
                         alt="Whatsapp"
@@ -202,7 +296,7 @@ export default function Footer() {
                         height={18}
                         className="object-contain cursor-pointer h-4.25 w-4.25 lg:h-5.5 lg:w-5.5"
                     />
-                </div>
+                </div> */}
             </div>
         </footer>
     );

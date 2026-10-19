@@ -4,23 +4,24 @@ import LuxeProductHeader from '@/app/(shop)/components/Luxe/LuxeProductHeader';
 import LuxeProductGallery from '@/app/(shop)/components/Luxe/LuxeProductGallery';
 import LuxeRecentlyViewed from '@/app/(shop)/components/Luxe/LuxeRecentlyViewed';
 import LuxeProductAccordions from '@/app/(shop)/components/Luxe/LuxeProductAccordions';
+import { cache } from 'react';
+import serverClient from '../../../../api/serverClient';
+import { fetchProductDetailApi } from '../../../../api/productApi';
+import RecentlyViewedTracker from '@/app/(shop)/components/RecentlyViewedTracker';
 
 // --- Server-Side Data Fetching ---
-async function getProduct(id) {
+const getProduct = cache(async (id) => {
+    if (!/^[a-f\d]{24}$/i.test(id)) return null;
+
     try {
-        const res = await fetch(`https://dwarajewels.in/api/product/${id}`, {
-            cache: 'no-store'
-        });
-
-        if (!res.ok) return null;
-
-        const data = await res.json();
-        return data.product;
+        const data = await fetchProductDetailApi(id, serverClient);
+        return data?.product || null;
     } catch (error) {
-        console.error("Error fetching single product:", error.message);
-        return null;
+        if (error.status === 404) return null;
+
+        throw error;
     }
-}
+});
 
 // --- Dynamic SEO Metadata ---
 export async function generateMetadata({ params }) {
@@ -52,12 +53,7 @@ export default async function LuxeProductPage({ params }) {
     const product = await getProduct(resolvedParams.id);
 
     if (!product) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center text-center bg-[#0C0E17] text-white">
-                <h1 className="font-serif text-3xl mb-4 text-[#D6B693]">Exquisite Piece Not Found</h1>
-                <p className="font-sans text-white/60">We could not retrieve the product with ID: {resolvedParams.id}</p>
-            </div>
-        );
+        notFound();
     }
 
     return (
@@ -65,6 +61,7 @@ export default async function LuxeProductPage({ params }) {
             className="relative min-h-screen w-full flex flex-col selection:bg-[#E5D3C4] selection:text-black overflow-hidden"
             style={{ background: 'radial-gradient(69.72% 78.08% at 47.07% 0%, #1F2A40 0%, #0C0E17 100%)' }}
         >
+            <RecentlyViewedTracker product={product} />
             {/* Starry Background Layer */}
             <div className="absolute inset-0 z-0 pointer-events-none mix-blend-screen opacity-60">
                 <Image

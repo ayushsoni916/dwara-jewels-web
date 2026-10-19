@@ -1,59 +1,101 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import LuxeProductFilterSidebar from '../../components/Luxe/LuxeProductFilterSidebar';
+import { fetchProductApi, fetchCategoryApi } from '../../../api/productApi';
+import serverClient from '../../../api/serverClient';
+import LuxeMobileFilter from '../../components/Luxe/LuxeMobileFilter';
+import WishlistButton from '../../components/WishlistButton';
 
 // --- Server-Side Data Fetching ---
-async function getLuxeCategoryPageData(searchParams) {
+
+const serverApiClient = {
+    get: async (path, options = {}) => {
+        const query = new URLSearchParams();
+
+        Object.entries(options.params || {}).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                query.set(key, String(value));
+            }
+        });
+
+        const endpoint = `${path}${query.size ? `?${query}` : ''}`;
+
+        return serverClient.request(endpoint, {
+            method: 'GET',
+            cache: 'no-store',
+        });
+    },
+};
+
+async function getLuxeCategoryPageData(searchParams = {}) {
+    const params = {
+        luxe: true,
+    };
+
+    const categoryId = searchParams.categoryId || searchParams.category;
+    const collectionId = searchParams.collectionId || searchParams.collection;
+
+    if (categoryId) params.category = categoryId;
+    if (collectionId) params.collection = collectionId;
+
+    if (searchParams.search) {
+        params.search = searchParams.search;
+    }
+
+    if (searchParams.gender) {
+        params.gender = searchParams.gender;
+    }
+
+    if (searchParams.isNewArrival === 'true') {
+        params.isNewArrival = true;
+    }
+
+    for (const key of [
+        'subCategory',
+        'metal',
+        'stone',
+        'size',
+        'minPrice',
+        'maxPrice',
+    ]) {
+        if (searchParams[key]) {
+            params[key] = searchParams[key];
+        }
+    }
+
     try {
-        const resolvedParams = await searchParams;
-        
-        const categoryId = resolvedParams?.category || '';
-        const subCategory = resolvedParams?.subCategory || '';
-        const collectionId = resolvedParams?.collection || '';
-        const searchQuery = resolvedParams?.search || '';
-        const metal = resolvedParams?.metal || '';
-        const stone = resolvedParams?.stone || '';
-        const size = resolvedParams?.size || '';
-        const minPrice = resolvedParams?.minPrice || '';
-        const maxPrice = resolvedParams?.maxPrice || '';
-
-        const queryParams = new URLSearchParams();
-        if (categoryId) queryParams.append('category', categoryId);
-        if (subCategory) queryParams.append('subCategory', subCategory);
-        if (collectionId) queryParams.append('collection', collectionId);
-        if (searchQuery) queryParams.append('search', searchQuery);
-        if (metal) queryParams.append('metal', metal);
-        if (stone) queryParams.append('stone', stone);
-        if (size) queryParams.append('size', size);
-        if (minPrice) queryParams.append('minPrice', minPrice);
-        if (maxPrice) queryParams.append('maxPrice', maxPrice);
-
-        // Force luxe to true for this section
-        queryParams.append('luxe', 'true');
-
-        const [productsRes, categoriesRes] = await Promise.all([
-            fetch(`https://dwarajewels.in/api/product?${queryParams.toString()}`, { cache: 'no-store' }),
-            fetch(`https://dwarajewels.in/api/category?type=luxe`, { next: { revalidate: 3600 } })
+        const [productsData, categoriesData] = await Promise.all([
+            fetchProductApi(params, serverApiClient),
+            fetchCategoryApi('luxe', serverApiClient),
         ]);
 
-        const productsData = productsRes.ok ? await productsRes.json() : { products: [] };
-        const categoriesData = categoriesRes.ok ? await categoriesRes.json() : { categories: [] };
-
         return {
-            products: productsData.products || [],
-            categories: categoriesData.categories || []
+            products: productsData?.products || [],
+            categories: (categoriesData?.categories || []).filter(
+                cat => cat.isLuxeCategory === true
+            ),
+            totalCount:
+                productsData?.count ??
+                productsData?.products?.length ??
+                0,
         };
     } catch (error) {
-        console.error("Error fetching luxe category page data:", error);
-        return { products: [], categories: [] };
+        console.error('Luxe category products error:', error);
+
+        return {
+            products: [],
+            categories: [],
+            totalCount: 0,
+        };
     }
 }
+
 
 export async function generateMetadata({ searchParams }) {
     const resolvedSearchParams = await searchParams;
     let title = 'Luxe Collection';
     if (resolvedSearchParams?.search) title = `Search: ${resolvedSearchParams.search}`;
-    
+
     return {
         title: `${title} | Dwara Jewels`,
         description: 'Explore our exclusive luxury jewelry collection.',
@@ -62,10 +104,10 @@ export async function generateMetadata({ searchParams }) {
 
 export default async function LuxeCategoryPage({ searchParams }) {
     const resolvedSearchParams = await searchParams;
-    const { products, categories } = await getLuxeCategoryPageData(resolvedSearchParams);
+    const { products, categories, totalCount } = await getLuxeCategoryPageData(resolvedSearchParams);
 
     return (
-        <div 
+        <div
             className="relative min-h-screen w-full flex flex-col lg:flex-row gap-8 lg:gap-12 px-6 lg:px-20 pt-32 lg:pt-40 pb-24 selection:bg-[#E5D3C4] selection:text-black overflow-hidden"
             style={{ background: 'radial-gradient(69.72% 78.08% at 47.07% 0%, #1F2A40 0%, #0C0E17 100%)' }}
         >
@@ -75,9 +117,9 @@ export default async function LuxeCategoryPage({ searchParams }) {
             </div>
 
             <div className="relative z-10 w-full max-w-[1440px] mx-auto flex flex-col lg:flex-row gap-8 lg:gap-12">
-                
+
                 {/* Filter Sidebar (Client Component) */}
-                <div className="w-full lg:w-[280px] shrink-0">
+                <div className="hidden lg:block lg:w-[280px] shrink-0">
                     <LuxeProductFilterSidebar
                         products={products}
                         categories={categories}
@@ -96,10 +138,30 @@ export default async function LuxeCategoryPage({ searchParams }) {
                         <h1 className="font-serif font-normal text-white text-[32px] sm:text-[48px] leading-tight mb-2">
                             {resolvedSearchParams?.search ? `Results for "${resolvedSearchParams.search}"` : "Luxe Collection"}
                         </h1>
-                        <p className="text-white/50 font-sans text-sm">
-                            Showing <span className="text-white font-semibold">{products.length}</span> Masterpieces
-                        </p>
+
+                        <div className="flex items-center justify-between gap-3 mt-2">
+                            <p className="text-white/50 font-sans text-sm">
+                                Showing{' '}
+                                <span className="text-white font-semibold">
+                                    {totalCount}
+                                </span>{' '}
+                                Masterpieces
+                            </p>
+
+                            <LuxeMobileFilter
+                                products={products}
+                                categories={categories}
+                                currentCategory={
+                                    resolvedSearchParams?.categoryId ||
+                                    resolvedSearchParams?.category ||
+                                    ''
+                                }
+                            />
+                        </div>
+
+
                     </div>
+
 
                     {/* Product Grid */}
                     {products.length === 0 ? (
@@ -108,15 +170,24 @@ export default async function LuxeCategoryPage({ searchParams }) {
                             <p className="text-white/50 font-sans text-sm">Try adjusting your exclusive filters.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                             {products.map((product) => {
                                 const currency = product.price?.currency === 'USD' ? '$' : 'Rs. ';
-                                const finalPrice = product.price?.finalPrice?.toLocaleString() || "0.00";
+
+                                const finalPrice = Number(product.price?.finalPrice);
+                                const comparePrice = Number(product.price?.compareAtPrice);
+
+                                const hasDiscount =
+                                    product.price?.finalPrice != null &&
+                                    product.price?.compareAtPrice != null &&
+                                    Number.isFinite(finalPrice) &&
+                                    Number.isFinite(comparePrice) &&
+                                    comparePrice > finalPrice;
                                 const imageUrl = product.thumbnail || (product.images && product.images[0]) || '/placeholder.webp';
 
                                 return (
                                     <div key={product._id} className="group flex flex-col h-full relative cursor-pointer">
-                                        
+
                                         {/* Gradient Border Wrapper */}
                                         <div className="relative aspect-[373/281] w-full mb-4 bg-gradient-to-b from-[#D6B693] to-transparent p-[0.5px]">
                                             <div className="relative w-full h-full bg-[#0C0E17] overflow-hidden flex items-center justify-center">
@@ -144,18 +215,23 @@ export default async function LuxeCategoryPage({ searchParams }) {
                                                         {product.title}
                                                     </h3>
                                                 </Link>
-                                                <div className="flex items-center gap-3 shrink-0 text-[#E5D3C4]">
-                                                    <button className="hover:text-white transition-colors" aria-label="Add to Wishlist">
-                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-70 hover:opacity-100"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                                                    </button>
-                                                    <button className="hover:text-white transition-colors" aria-label="Add to Cart">
-                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-70 hover:opacity-100"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-                                                    </button>
+                                                <div className="flex items-center shrink-0 text-[#D6B693]">
+                                                    <WishlistButton productId={product._id} />
                                                 </div>
                                             </div>
-                                            <p className="text-white font-sans font-bold text-[13px] mt-auto pt-2">
-                                                {currency}{finalPrice}
-                                            </p>
+                                            <div className="flex flex-wrap items-center gap-2 mt-auto pt-2">
+                                                {hasDiscount && (
+                                                    <span className="text-white/40 font-sans text-[12px] line-through">
+                                                        {currency}{comparePrice.toLocaleString('en-IN')}
+                                                    </span>
+                                                )}
+
+                                                <span className="text-white font-sans font-bold text-[13px]">
+                                                    {product.price?.finalPrice != null && Number.isFinite(finalPrice)
+                                                        ? `${currency}${finalPrice.toLocaleString('en-IN')}`
+                                                        : '—'}
+                                                </span>
+                                            </div>
                                         </div>
 
                                     </div>

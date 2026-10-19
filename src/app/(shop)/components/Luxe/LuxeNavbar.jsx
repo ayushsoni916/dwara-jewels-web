@@ -7,21 +7,15 @@ import LogoutModal from '../LogoutModal';
 
 // Hardcoded Luxe categories mapped to their exact database IDs
 const navCategories = [
-    { 
-        id: '69bbb1020685b07e948ae4a2',
-        name: 'Necklaces', 
-        subcategories: ['Chokers', 'Pendants', 'Chains', 'Mangalsutra'] 
+    {
+        id: '6ad11781e40f8beba858573d',
+        name: 'Chain Pendant',
+        subcategories: [
+            'Daily Wear',
+            'Bridal',
+            'Minimal',
+        ],
     },
-    { 
-        id: '69bba51293da9551888cea6a',
-        name: 'Rings', 
-        subcategories: ['Engagement', 'Solitaire', 'Bands', 'Cocktail'] 
-    },
-    { 
-        id: '69bbb14e0685b07e948ae4a6',
-        name: 'Bracelet', 
-        subcategories: ['Chain', 'Bangle', 'Cuff'] 
-    }
 ];
 
 export default function LuxeNavbar() {
@@ -60,7 +54,9 @@ export default function LuxeNavbar() {
 
             try {
                 // Fetching from backend API restricted to luxe products only
-                const res = await fetch(`https://dwarajewels.in/api/product?search=${encodeURIComponent(searchQuery)}&limit=4&luxe=true`);
+                const res = await fetch(
+                    `/api/backend/product?search=${encodeURIComponent(searchQuery.trim())}&limit=4&luxe=true`
+                );
                 const data = await res.json();
 
                 if (data.success) {
@@ -87,7 +83,7 @@ export default function LuxeNavbar() {
 
     return (
         <header className={`fixed top-0 left-0 z-50 w-full text-white transition-all duration-300 ${scrolled ? 'bg-[#12141D]/90 backdrop-blur-md shadow-lg' : 'bg-transparent'}`}>
-            
+
             {/* 1. TOP BAR */}
             <div className="flex items-center justify-between px-20 h-8.5 lg:h-12.25 text-[10px] lg:text-[13px] leading-6 uppercase tracking-[0.65px] border-b border-white/10 font-sans">
                 <div className="hidden lg:flex gap-6 text-gray-300">
@@ -99,24 +95,24 @@ export default function LuxeNavbar() {
                 </div>
                 <div className="hidden lg:flex gap-6 text-gray-300">
                     <Link href="/faq" className="hover:text-[#E5D3C4] transition-colors">FAQ</Link>
-                    <Link href="/career" className="hover:text-[#E5D3C4] transition-colors">Career</Link>
-                    <Link href="/support" className="hover:text-[#E5D3C4] transition-colors">Support</Link>
+                    {/* <Link href="/career" className="hover:text-[#E5D3C4] transition-colors">Career</Link> */}
+                    <Link href="/account/support" className="hover:text-[#E5D3C4] transition-colors">Support</Link>
                     <Link href="/about" className="hover:text-[#E5D3C4] transition-colors">About Us</Link>
                 </div>
             </div>
 
             {/* 2. MAIN NAVBAR */}
             <nav className="flex items-center justify-between px-7.5 lg:px-20 py-5 h-22.25 lg:h-25">
-                
+
                 <Link href="/luxe" className="flex items-center gap-3">
                     <div className="h-8.75 lg:h-12.5 shrink-0">
-                        <Image 
-                            src="/images/LuxeLogo.webp" 
-                            alt="Dwara Jewels Luxe" 
-                            width={200} 
-                            height={50} 
-                            className="h-8.75 lg:h-12.5 w-auto object-contain" 
-                            priority 
+                        <Image
+                            src="/images/LuxeLogo.webp"
+                            alt="Dwara Jewels Luxe"
+                            width={200}
+                            height={50}
+                            className="h-8.75 lg:h-12.5 w-auto object-contain"
+                            priority
                         />
                     </div>
                 </Link>
@@ -142,18 +138,18 @@ export default function LuxeNavbar() {
 
                 {/* Search & Actions */}
                 <div className="flex items-center gap-4 lg:gap-8">
-                    
+
                     {/* Dynamic Search Bar */}
                     <div className="hidden md:flex items-center gap-3.5 relative">
                         <Image src="/icons/Search.svg" alt="Search" width={20} height={20} className="object-contain brightness-0 invert" />
-                        <input 
-                            type="text" 
-                            placeholder="Search here" 
+                        <input
+                            type="text"
+                            placeholder="Search here"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onFocus={() => searchQuery.length >= 2 && setShowSearchDropdown(true)}
                             onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-                            className="bg-transparent text-sm outline-none pr-2 w-40 border-b border-gray-400 focus:border-[#E5D3C4] py-1 text-white placeholder:text-gray-300 transition-colors" 
+                            className="bg-transparent text-sm outline-none pr-2 w-40 border-b border-gray-400 focus:border-[#E5D3C4] py-1 text-white placeholder:text-gray-300 transition-colors"
                         />
 
                         {/* Luxe Search Dropdown */}
@@ -166,7 +162,7 @@ export default function LuxeNavbar() {
                                         {searchResults.map((product) => (
                                             <Link
                                                 key={product._id}
-                                                href={`/product/${product._id}`}
+                                                href={`/luxe/product/${product._id}`}
                                                 className="flex items-center gap-4 p-4 hover:bg-white/5 transition-colors border-b border-white/10 last:border-0"
                                             >
                                                 <div className="w-12 h-12 relative shrink-0 bg-[#0C0E17] overflow-hidden border border-white/5">
@@ -182,7 +178,7 @@ export default function LuxeNavbar() {
                                                         {product.title}
                                                     </span>
                                                     <span className="font-serif text-[13px] text-[#E5D3C4]">
-                                                        ${product.price?.finalPrice?.toLocaleString()}
+                                                        Rs. {product.price?.finalPrice?.toLocaleString()}
                                                     </span>
                                                 </div>
                                             </Link>
@@ -203,24 +199,47 @@ export default function LuxeNavbar() {
                         )}
                     </div>
 
+
                     <div className="flex items-center gap-4 lg:gap-8">
-                        <button onClick={() => isLoggedIn ? setIsLogoutModalOpen(true) : setIsLoginModalOpen(true)} className="hover:opacity-70 transition-opacity">
+                        {/* Wishlist */}
+                        <Link
+                            href="/account/wishlist"
+                            aria-label="Wishlist"
+                            className="hover:opacity-70 transition-opacity"
+                        >
                             <div className="relative h-3.5 w-3.5 lg:h-5 lg:w-5">
-                                <Image src="/icons/User.svg" alt="User Profile" fill className="object-contain brightness-0 invert" />
+                                <Image
+                                    src="/icons/Wish.svg"
+                                    alt="Wishlist"
+                                    fill
+                                    className="object-contain brightness-0 invert"
+                                />
                             </div>
-                        </button>
-                        <Link href="/cart" className="hover:opacity-70 transition-opacity relative">
+                        </Link>
+
+                        {/* Cart - Same as Normal Website */}
+                        <Link
+                            href="/account/cart"
+                            aria-label="Shopping Cart"
+                            className="hover:opacity-70 transition-opacity"
+                        >
                             <div className="relative h-3.5 w-3.5 lg:h-5 lg:w-5">
-                                <Image src="/icons/Cart.svg" alt="Shopping Cart" fill className="object-contain brightness-0 invert" />
+                                <Image
+                                    src="/icons/Cart.svg"
+                                    alt="Shopping Cart"
+                                    fill
+                                    className="object-contain brightness-0 invert"
+                                />
                             </div>
                         </Link>
                     </div>
 
-                    <button className="lg:hidden text-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+
+                    {/* <button className="lg:hidden text-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
                         <div className="relative h-7 w-7">
                             <Image src="/icons/Toggle.svg" alt="Menu Toggle" fill className="object-contain brightness-0 invert" />
                         </div>
-                    </button>
+                    </button> */}
                 </div>
             </nav>
 

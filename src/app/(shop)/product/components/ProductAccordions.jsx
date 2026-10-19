@@ -1,5 +1,6 @@
 'use client';
 import { useState } from "react";
+import Link from 'next/link';
 
 export default function ProductAccordions({
     product,
@@ -10,7 +11,8 @@ export default function ProductAccordions({
         details: true,
         reviews: false,
         stone: false,
-        price: false
+        price: false,
+        returnPolicy: false,
     });
 
     if (!product) return null;
@@ -165,6 +167,53 @@ export default function ProductAccordions({
                     </div>
                 </div>
             </div>
+
+            {/* 6. Return & Exchange Policy */}
+            <div className="border-b border-gray-100">
+                <button
+                    type="button"
+                    onClick={() => toggleAccordion('returnPolicy')}
+                    aria-expanded={openAccordions.returnPolicy}
+                    className="w-full flex justify-between items-center py-5 text-[16px] font-bold text-[#222222]"
+                >
+                    Return & Exchange Policy
+                    <ChevronIcon isOpen={openAccordions.returnPolicy} />
+                </button>
+
+                {openAccordions.returnPolicy && (
+                    <div className="pb-6 text-[#222222] text-sm leading-7 space-y-3">
+                        <p>• Returns or exchanges must be requested within 7 days of delivery.</p>
+
+                        <p>• Jewellery must be unused, undamaged, and returned with its original packaging and intact security tag.</p>
+
+                        <p>• Incorrect ring sizes selected by customers, customized jewellery, and final-sale items are not eligible for returns or exchanges.</p>
+
+                        <p>• Damaged, defective, or incorrect items must be reported within 24 hours of delivery with a continuous, unedited unboxing video.</p>
+
+                        <p>• Reverse shipping charges of ₹100–₹150 (or actual courier cost) may apply.</p>
+
+                        <p>• Approved prepaid refunds are processed within 5–7 business days after successful quality inspection.</p>
+
+                        <p className="pt-2">
+                            For assistance:{' '}
+                            <a
+                                href="mailto:dwarajewels.official@gmail.com"
+                                className="text-[#BF8F5F] hover:underline"
+                            >
+                                dwarajewels.official@gmail.com
+                            </a>
+                        </p>
+
+                        <Link
+                            href="/return-and-exchange-policy"
+                            className="inline-block text-[#BF8F5F] font-semibold hover:underline"
+                        >
+                            Read Full Return & Exchange Policy →
+                        </Link>
+                    </div>
+                )}
+            </div>
+
 
         </div>
     );

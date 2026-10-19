@@ -47,7 +47,7 @@ export default function CustomerSupportPage() {
                                         </div>
                                         <div className="flex flex-col justify-center pt-1">
                                             <p className="text-sm text-[#222222] mb-1">Phone No.</p>
-                                            <p className="text-[#BF8F5F] font-bold text-[15px] tracking-wide">+91 7976345672 , 8978653241</p>
+                                            <p className="text-[#BF8F5F] font-bold text-[15px] tracking-wide">+91 6377584487</p>
                                         </div>
                                     </div>
 
@@ -76,7 +76,7 @@ export default function CustomerSupportPage() {
                                         <div className="flex flex-col justify-center pt-1">
                                             <p className="text-sm text-[#222222] mb-1">Locate Us:</p>
                                             <p className="text-[#BF8F5F] font-bold text-[15px] leading-relaxed max-w-[260px]">
-                                                82, Prem Nagar 2nd, Shanti Nagar A, Mansarovar, Jaipur, Rajasthan, India - 302018
+                                                57A, Gayatri Nagar 2nd, Sanganer, Jaipur, 302029
                                             </p>
                                         </div>
                                     </div>
@@ -84,7 +84,7 @@ export default function CustomerSupportPage() {
                             </div>
 
                             {/* Right Column: Form */}
-                            <div className="w-full lg:w-1/2 flex flex-col">
+                            <div className="w-full lg:w-1/2 flex flex-col hidden">
                                 <h2 className="text-xl text-[#222222] mb-8">
                                     Fill the form below:
                                 </h2>

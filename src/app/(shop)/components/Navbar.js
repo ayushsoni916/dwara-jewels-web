@@ -13,7 +13,7 @@ const navCategories = [
     {
         id: '6acd0a05b2210243220ab66f',
         name: 'Earrings',
-        subcategories: ['Upper Piercing Helix', 'Cool Earring For Her', 'Office Earrings', 'Bridal Earrings', 'Minimal Earring','Jhumki']
+        subcategories: ['Upper Piercing Helix', 'Cool Earring For Her', 'Office Earrings', 'Bridal Earrings', 'Minimal Earring', 'Jhumki']
     },
     {
         id: '6acd0a20b2210243220ab673',
@@ -106,7 +106,11 @@ export default function Navbar() {
 
             try {
                 // Fetching from your local backend API
-                const res = await fetch(`http://localhost:4500/api/product?search=${encodeURIComponent(searchQuery)}&limit=4`);
+
+                const res = await fetch(
+                    `/api/backend/product?search=${encodeURIComponent(searchQuery.trim())}&limit=4`
+                );
+
                 const data = await res.json();
 
                 if (data.success) {
@@ -140,8 +144,8 @@ export default function Navbar() {
                 </div>
                 <div className="hidden lg:flex gap-6">
                     <Link href="/faq" className="hover:text-[#BF8F5F] transition-colors">FAQ</Link>
-                    <Link href="/career" className="hover:text-[#BF8F5F] transition-colors">Career</Link>
-                    <Link href="/support" className="hover:text-[#BF8F5F] transition-colors">Support</Link>
+                    {/* <Link href="/career" className="hover:text-[#BF8F5F] transition-colors">Career</Link> */}
+                    <Link href="/account/support" className="hover:text-[#BF8F5F] transition-colors">Support</Link>
                     <Link href="/about" className="hover:text-[#BF8F5F] transition-colors">About Us</Link>
                 </div>
             </div>

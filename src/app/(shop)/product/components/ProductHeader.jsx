@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../../../context/AuthContext';
 import { addToCartApi } from '../../../api/cartApi';
 import LoginModal from '../../components/LoginModal';
+import { fetchWishlistApi, toggleWishlistApi } from '../../../api/wishlistApi';
+import Link from 'next/link';
 
 const getStock = option =>
     Number.isSafeInteger(Number(option?.stock))
@@ -26,6 +28,8 @@ export default function ProductHeader({
     selectedDimension,
     onSelectDimension,
 }) {
+    const [isWishlisted, setIsWishlisted] = useState(false);
+    const [wishlistLoading, setWishlistLoading] = useState(false);
     const router = useRouter();
     const { isLoggedIn, loading: authLoading } = useAuth();
 
@@ -36,6 +40,114 @@ export default function ProductHeader({
     const [isLoginOpen, setIsLoginOpen] = useState(false);
 
     const pendingRef = useRef(false);
+
+    const [ringGuideOpen, setRingGuideOpen] = useState(false);
+
+    const isRingProduct =
+        String(product.category?._id || product.category) ===
+        '6acd09e9b2210243220ab66b' ||
+        product.category?.name?.toLowerCase() === 'rings';
+
+
+    useEffect(() => {
+        if (authLoading || !isLoggedIn) {
+            setIsWishlisted(false);
+            return;
+        }
+
+        let active = true;
+
+        fetchWishlistApi()
+            .then(res => {
+                if (active && res.success) {
+                    setIsWishlisted(
+                        (res.products || []).some(
+                            item => String(item._id) === String(product._id)
+                        )
+                    );
+                }
+            })
+            .catch(err => console.error('Wishlist load failed:', err));
+
+        return () => {
+            active = false;
+        };
+    }, [product._id, isLoggedIn, authLoading]);
+
+    const handleWishlist = async () => {
+        if (wishlistLoading || authLoading) return;
+
+        if (!isLoggedIn) {
+            setIsLoginOpen(true);
+            return;
+        }
+
+        setWishlistLoading(true);
+
+        try {
+            const res = await toggleWishlistApi(product._id);
+
+            if (!res.success) {
+                throw new Error(res.error || 'Unable to update wishlist');
+            }
+
+            setIsWishlisted(Boolean(res.isWishlisted));
+        } catch (error) {
+            if (error.status === 401) {
+                setIsLoginOpen(true);
+            } else {
+                setMessage({
+                    type: 'error',
+                    text: error.message || 'Unable to update wishlist.',
+                });
+            }
+        } finally {
+            setWishlistLoading(false);
+        }
+    };
+
+
+    const handleShare = async () => {
+        const url = `${window.location.origin}/product/${product._id}`;
+
+        try {
+            if (navigator.share) {
+                await navigator.share({
+                    title: product.title,
+                    text: `Check out ${product.title} at Dwara Jewels`,
+                    url,
+                });
+            } else {
+                await navigator.clipboard.writeText(url);
+
+                setMessage({
+                    type: 'success',
+                    text: 'Product link copied!',
+                });
+            }
+        } catch (error) {
+            // User closed the native share sheet
+            if (error.name === 'AbortError') return;
+
+            try {
+                await navigator.clipboard.writeText(url);
+
+                setMessage({
+                    type: 'success',
+                    text: 'Product link copied!',
+                });
+            } catch {
+                setMessage({
+                    type: 'error',
+                    text: 'Unable to share product link.',
+                });
+            }
+        }
+    };
+
+
+
+
 
     const [isAdded, setIsAdded] = useState(false);
 
@@ -176,6 +288,12 @@ export default function ProductHeader({
     const collectionName =
         product.collection?.name || product.category?.name;
 
+    const collectionHref = product.collection?._id
+        ? `/category?collection=${product.collection._id}`
+        : product.category?._id
+            ? `/category?category=${product.category._id}`
+            : null;
+
     return (
         <div className="flex flex-col pb-8 border-b border-gray-100 mb-8 font-sans">
             {/* Header & Price */}
@@ -205,9 +323,20 @@ export default function ProductHeader({
             <div className="flex flex-wrap items-center gap-3 mb-8 text-[11px] sm:text-xs">
                 {collectionName && (
                     <>
-                        <span className="text-[#BF8F5F] font-bold uppercase tracking-widest">
-                            {collectionName}
-                        </span>
+
+                        {collectionHref ? (
+                            <Link
+                                href={collectionHref}
+                                className="text-[#BF8F5F] font-bold uppercase tracking-widest hover:underline transition-colors"
+                            >
+                                {collectionName}
+                            </Link>
+                        ) : (
+                            <span className="text-[#BF8F5F] font-bold uppercase tracking-widest">
+                                {collectionName}
+                            </span>
+                        )}
+
                         <span className="text-[#BF8F5F]">|</span>
                     </>
                 )}
@@ -231,14 +360,18 @@ export default function ProductHeader({
 
             {/* Wishlist & Share */}
             <div className="flex items-center gap-6 mb-8">
+
                 <button
                     type="button"
-                    className="text-[#222222] hover:text-[#BF8F5F] transition-colors"
-                    aria-label="Add to Wishlist"
+                    onClick={handleWishlist}
+                    disabled={wishlistLoading || authLoading}
+                    aria-label={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                    aria-pressed={isWishlisted}
+                    className="text-[#BF8F5F] hover:scale-110 transition-transform disabled:opacity-50"
                 >
                     <svg
                         className="w-[22px] h-[22px]"
-                        fill="none"
+                        fill={isWishlisted ? 'currentColor' : 'none'}
                         stroke="currentColor"
                         strokeWidth="1.5"
                         viewBox="0 0 24 24"
@@ -251,10 +384,12 @@ export default function ProductHeader({
                     </svg>
                 </button>
 
+
                 <button
                     type="button"
+                    onClick={handleShare}
                     className="text-[#222222] hover:text-[#BF8F5F] transition-colors"
-                    aria-label="Share"
+                    aria-label="Share Product"
                 >
                     <svg
                         className="w-[22px] h-[22px]"
@@ -351,6 +486,17 @@ export default function ProductHeader({
                         )}
                     </div>
                 </div>
+            )}
+
+            {isRingProduct && (
+                <button
+                    type="button"
+                    onClick={() => setRingGuideOpen(true)}
+                    className="mb-6 flex items-center gap-2 text-left text-sm font-medium text-[#BF8F5F] hover:underline"
+                >
+                    Not sure about your size? View Ring Size Guide
+                    <span aria-hidden="true">↗</span>
+                </button>
             )}
 
             {/* Cart & Buy Actions */}
@@ -484,6 +630,76 @@ export default function ProductHeader({
                     router.refresh();
                 }}
             />
+
+            {ringGuideOpen && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
+                    onClick={() => setRingGuideOpen(false)}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="ring-guide-title"
+                        className="relative w-full max-w-[600px] max-h-[90vh] overflow-hidden bg-white shadow-xl"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+                            <div>
+                                <p className="text-[10px] tracking-[0.25em] text-[#BF8F5F]">
+                                    DWARA JEWELS
+                                </p>
+                                <h2
+                                    id="ring-guide-title"
+                                    className="mt-1 font-serif text-xl text-[#222222]"
+                                >
+                                    Find Your Perfect Fit
+                                </h2>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setRingGuideOpen(false)}
+                                aria-label="Close size guide"
+                                className="text-2xl text-[#222222] hover:text-[#BF8F5F]"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        {/* Size Guide Images */}
+                        <div className="max-h-[70vh] overflow-y-auto p-4 sm:p-6">
+                            <img
+                                src="/images/ring-guide-1.png"
+                                alt="Dwara Jewels ring size guide - page 1"
+                                className="mb-5 h-auto w-full"
+                            />
+
+                            <img
+                                src="/images/ring-guide-2.png"
+                                alt="Dwara Jewels ring size guide - page 2"
+                                className="h-auto w-full"
+                            />
+
+                            <p className="mt-5 text-center text-xs text-gray-500">
+                                Measure your finger 2–3 times for a more accurate fit.
+                            </p>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="border-t border-gray-100 px-5 py-4">
+                            <button
+                                type="button"
+                                onClick={() => setRingGuideOpen(false)}
+                                className="w-full bg-[#BF8F5F] py-3 text-xs font-bold uppercase tracking-widest text-white hover:bg-[#a67b50] transition-colors"
+                            >
+                                Got It
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }

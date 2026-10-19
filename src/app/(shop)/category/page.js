@@ -4,6 +4,7 @@ import ProductFilterSidebar from './components/ProductFilterSidebar';
 import MobileFilter from './components/MobileFilter';
 import { fetchProductApi, fetchCategoryApi } from '../../api/productApi';
 import serverClient from '../../api/serverClient';
+import WishlistButton from '../components/WishlistButton';
 
 // --- Server-Side Data Fetching ---
 // --- Server-Side Data Fetching ---
@@ -139,7 +140,7 @@ export default async function CategoryPage({ searchParams }) {
             <main className="flex-1 mt-4 lg:mt-0 w-full">
 
                 {/* Banner Image */}
-                <div className="overflow-hidden mb-8 lg:mb-15 rounded-md lg:rounded-none">
+                {/* <div className="overflow-hidden mb-8 lg:mb-15 rounded-md lg:rounded-none">
                     <div className="relative w-full h-[250px] sm:h-[350px]">
                         <Image
                             src={img1}
@@ -148,7 +149,7 @@ export default async function CategoryPage({ searchParams }) {
                             className="object-cover"
                         />
                     </div>
-                </div>
+                </div> */}
 
                 {/* Header Section */}
                 <div className="flex flex-col mb-8 lg:mb-15">
@@ -188,61 +189,77 @@ export default async function CategoryPage({ searchParams }) {
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-                        {products.map((product) => (
-                            <div key={product._id} className="group cursor-pointer mb-6 lg:mb-[60px] flex flex-col">
+                        {products.map((product) => {
+                            const outOfStock = Array.isArray(product.dimensions)
+                                ? !product.dimensions.some(
+                                    option => Number(option.stock) > 0
+                                )
+                                : Number(product.totalStock ?? 0) <= 0;
 
-                                {/* Product Image Container with SEO Link */}
-                                <div className="bg-[#F9F6F2] mb-4 lg:mb-6 overflow-hidden relative w-full aspect-square rounded-sm">
-                                    <Link href={`/product/${product._id}`} className="w-full h-full relative block">
-                                        <Image
-                                            src={product.thumbnail || (product.images && product.images[0]) || '/placeholder.webp'}
-                                            alt={product.title}
-                                            fill
-                                            className="object-cover p-0 transition-transform duration-500 group-hover:scale-110"
-                                        />
-                                    </Link>
-                                </div>
+                            return (
+                                <div
+                                    key={product._id}
+                                    className="group cursor-pointer mb-6 lg:mb-[60px] flex flex-col"
+                                >
 
-                                {/* Product Details */}
-                                <div className="flex flex-col sm:flex-row sm:justify-between items-start pr-0 sm:pr-2 gap-2 sm:gap-0">
-                                    <Link href={`/product/${product._id}`} className="hover:text-[#BF8F5F] transition-colors">
-                                        <h3 className="title-main text-sm sm:text-base leading-tight pr-2 line-clamp-1">
-                                            {product.title}
-                                        </h3>
-                                    </Link>
-
-                                    {/* Action Icons */}
-                                    <div className="flex items-center gap-3 shrink-0 mt-1 sm:mt-0">
-                                        <button aria-label="Wishlist">
-                                            <Image src="/icons/Heart.svg" alt="Wishlist" width={18} height={18} className="w-[18px] h-[18px] lg:w-5 lg:h-5 hover:scale-125 transition-transform" />
-                                        </button>
-                                        <button aria-label="Cart">
-                                            <Image src="/icons/Cart.svg" alt="Add to Cart" width={18} height={18} className="w-[18px] h-[18px] lg:w-5 lg:h-5 hover:scale-125 transition-transform" />
-                                        </button>
-                                    </div>
-                                </div>
-
-
-                                <div className="flex flex-wrap items-center gap-2 mt-2 lg:mt-[15px]">
-                                    {product.price?.compareAtPrice != null &&
-                                        product.price?.finalPrice != null &&
-                                        Number(product.price.compareAtPrice) >
-                                        Number(product.price.finalPrice) && (
-                                            <span className="text-gray-400 font-normal line-through text-[10px] sm:text-xs">
-                                                {product.price?.currency === 'USD' ? '$' : 'Rs. '}
-                                                {Number(product.price.compareAtPrice).toLocaleString('en-IN')}
-                                            </span>
+                                    {/* Product Image Container with SEO Link */}
+                                    <div className="bg-[#F9F6F2] mb-4 lg:mb-6 overflow-hidden relative w-full aspect-square rounded-sm">
+                                        <Link href={`/product/${product._id}`} className="w-full h-full relative block">
+                                            <Image
+                                                src={product.thumbnail || (product.images && product.images[0]) || '/placeholder.webp'}
+                                                alt={product.title}
+                                                fill
+                                                className="object-cover p-0 transition-transform duration-500 group-hover:scale-110"
+                                            />
+                                        </Link>
+                                         {outOfStock && (
+                                            <div className="absolute bottom-0 left-0 right-0 z-10 bg-[#222222]/80 py-2 text-center pointer-events-none">
+                                                <span className="text-white text-[10px] sm:text-xs font-semibold uppercase tracking-widest">
+                                                    Out of Stock
+                                                </span>
+                                            </div>
                                         )}
+                                    </div>
 
-                                    <span className="title-main font-bold text-sm lg:text-base text-[#222222]">
-                                        {product.price?.finalPrice != null
-                                            ? `${product.price?.currency === 'USD' ? '$' : 'Rs. '}${Number(product.price.finalPrice).toLocaleString('en-IN')}`
-                                            : '—'}
-                                    </span>
+                                    {/* Product Details */}
+                                    <div className="flex flex-col sm:flex-row sm:justify-between items-start pr-0 sm:pr-2 gap-2 sm:gap-0">
+                                        <Link href={`/product/${product._id}`} className="hover:text-[#BF8F5F] transition-colors">
+                                            <h3 className="title-main text-sm sm:text-base leading-tight pr-2 line-clamp-1">
+                                                {product.title}
+                                            </h3>
+                                        </Link>
+
+                                       
+
+
+                                        {/* Wishlist */}
+                                        <div className="flex items-center shrink-0 mt-1 sm:mt-0">
+                                            <WishlistButton productId={product._id} />
+                                        </div>
+                                    </div>
+
+
+                                    <div className="flex flex-wrap items-center gap-2 mt-2 lg:mt-[15px]">
+                                        {product.price?.compareAtPrice != null &&
+                                            product.price?.finalPrice != null &&
+                                            Number(product.price.compareAtPrice) >
+                                            Number(product.price.finalPrice) && (
+                                                <span className="text-gray-400 font-normal line-through text-[10px] sm:text-xs">
+                                                    {product.price?.currency === 'USD' ? '$' : 'Rs. '}
+                                                    {Number(product.price.compareAtPrice).toLocaleString('en-IN')}
+                                                </span>
+                                            )}
+
+                                        <span className="title-main font-bold text-sm lg:text-base text-[#222222]">
+                                            {product.price?.finalPrice != null
+                                                ? `${product.price?.currency === 'USD' ? '$' : 'Rs. '}${Number(product.price.finalPrice).toLocaleString('en-IN')}`
+                                                : '—'}
+                                        </span>
+                                    </div>
+
                                 </div>
-
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </main>

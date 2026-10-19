@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 
 const MATERIALS = ['Gold', 'Silver', 'Platinum'];
 const MIN_PRICE = 0;
-const MAX_PRICE = 150000; // Increased max price for Luxe items
+const MAX_PRICE = 15000; // Increased max price for Luxe items
 
 export default function LuxeProductFilterSidebar({ categories = [], products = [], currentCategory = '' }) {
     const router = useRouter();
@@ -27,14 +27,32 @@ export default function LuxeProductFilterSidebar({ categories = [], products = [
         const params = new URLSearchParams(searchParams.toString());
         if (params.get(key) === value) params.delete(key);
         else params.set(key, value);
-        
-        if (key === 'category') params.delete('subCategory');
+
+        if (key === 'category') {
+            const selectedCategory =
+                params.get('category') || params.get('categoryId');
+
+            params.delete('categoryId');
+            params.delete('subCategory');
+
+            if (selectedCategory === value) {
+                params.delete('category');
+            } else {
+                params.set('category', value);
+            }
+        } else {
+            if (params.get(key) === value) {
+                params.delete(key);
+            } else {
+                params.set(key, value);
+            }
+        }
         router.push(`/luxe/category?${params.toString()}`, { scroll: false });
     };
 
     const handlePriceCommit = () => {
         const params = new URLSearchParams(searchParams.toString());
-        
+
         if (priceRange[0] > MIN_PRICE) params.set('minPrice', priceRange[0]);
         else params.delete('minPrice');
 
@@ -45,8 +63,17 @@ export default function LuxeProductFilterSidebar({ categories = [], products = [
     };
 
     const handleClearFilters = () => {
-        const currentCat = searchParams.get('category');
-        router.push(currentCat ? `/luxe/category?category=${currentCat}` : '/luxe/category');
+        const params = new URLSearchParams();
+
+        const category = searchParams.get('category');
+        const collection = searchParams.get('collection');
+
+        if (category) params.set('category', category);
+        if (collection) params.set('collection', collection);
+
+        router.push(
+            `/luxe/category${params.toString() ? `?${params.toString()}` : ''}`
+        );
     };
 
     const activeCategoryObj = categories.find(cat => cat._id === currentCategory);
@@ -58,7 +85,9 @@ export default function LuxeProductFilterSidebar({ categories = [], products = [
     }, [products]);
 
     const availableSizes = useMemo(() => {
-        const sizes = products.map(p => p.dimensions?.size);
+        const sizes = products.flatMap(product =>
+            (product.dimensions || []).map(dimension => dimension.size)
+        );
         return [...new Set(sizes.filter(Boolean))];
     }, [products]);
 
@@ -72,13 +101,13 @@ export default function LuxeProductFilterSidebar({ categories = [], products = [
 
     return (
         <aside className="w-full lg:pr-6 space-y-10 font-sans text-white border-r border-white/5 lg:min-h-[600px]">
-            
+
             {/* Categories */}
             <div>
-                <h3 className="text-white text-[18px] font-serif mb-4 tracking-wide">Collections</h3>
+                <h3 className="text-white text-[18px] font-serif mb-4 tracking-wide">Categories</h3>
                 <ul className="space-y-3">
                     {categories?.map((cat) => (
-                        <li 
+                        <li
                             key={cat._id}
                             onClick={() => handleFilterClick('category', cat._id)}
                             className={`cursor-pointer transition-all flex items-center gap-3 
@@ -95,18 +124,18 @@ export default function LuxeProductFilterSidebar({ categories = [], products = [
             {/* Price Slider */}
             <div className="w-[85%]">
                 <h3 className="text-white text-[18px] font-serif mb-6 tracking-wide">Investment</h3>
-                
+
                 <div className="relative w-full h-[2px] mt-6 mb-4">
                     {/* Background Track */}
                     <div className="absolute top-0 left-0 w-full h-full bg-white/20"></div>
-                    
+
                     {/* Active Track */}
-                    <div 
+                    <div
                         className="absolute top-0 h-full bg-[#D6B693]"
                         style={{ left: `${percent1}%`, right: `${100 - percent2}%` }}
                     ></div>
 
-                    <input 
+                    <input
                         type="range" min={MIN_PRICE} max={MAX_PRICE} value={priceRange[0]}
                         onChange={(e) => {
                             const value = Math.min(Number(e.target.value), priceRange[1] - 500);
@@ -116,7 +145,7 @@ export default function LuxeProductFilterSidebar({ categories = [], products = [
                         className="absolute top-1/2 -translate-y-1/2 w-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-[#D6B693] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
                     />
 
-                    <input 
+                    <input
                         type="range" min={MIN_PRICE} max={MAX_PRICE} value={priceRange[1]}
                         onChange={(e) => {
                             const value = Math.max(Number(e.target.value), priceRange[0] + 500);
@@ -126,9 +155,9 @@ export default function LuxeProductFilterSidebar({ categories = [], products = [
                         className="absolute top-1/2 -translate-y-1/2 w-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-[#D6B693] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
                     />
                 </div>
-                
+
                 <p className="text-[12px] text-white/50 tracking-wider mt-5">
-                    $ {priceRange[0].toLocaleString()} - $ {priceRange[1].toLocaleString()}
+                    Rs. {priceRange[0].toLocaleString()} - Rs. {priceRange[1].toLocaleString()}
                 </p>
             </div>
             <hr className="border-white/10 w-[85%]" />
@@ -144,7 +173,7 @@ export default function LuxeProductFilterSidebar({ categories = [], products = [
                         <h3 className="text-white text-[18px] font-serif mb-4 tracking-wide">{section.title}</h3>
                         <ul className="space-y-3">
                             {section.data.map((item) => (
-                                <li 
+                                <li
                                     key={item}
                                     onClick={() => handleFilterClick(section.activeKey, item)}
                                     className="flex items-center gap-3 cursor-pointer group"
@@ -153,7 +182,7 @@ export default function LuxeProductFilterSidebar({ categories = [], products = [
                                         ${section.activeState === item ? 'bg-[#D6B693] border-[#D6B693]' : 'border-white/30 bg-[#0C0E17] group-hover:border-[#D6B693]'}`}
                                     >
                                         {section.activeState === item && (
-                                            <svg width="8" height="6" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0C0E17" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                            <svg width="8" height="6" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#0C0E17" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                                         )}
                                     </div>
                                     <span className={`text-[13px] ${section.activeState === item ? 'text-[#D6B693] tracking-wide' : 'text-white/60 group-hover:text-white'}`}>{item}</span>
@@ -189,7 +218,7 @@ export default function LuxeProductFilterSidebar({ categories = [], products = [
 
             {/* Clear Filters */}
             <div className="pt-2 pb-6">
-                <button 
+                <button
                     onClick={handleClearFilters}
                     className="flex items-center gap-2 text-[11px] font-bold text-white/50 uppercase tracking-widest hover:text-[#D6B693] transition-colors"
                 >
