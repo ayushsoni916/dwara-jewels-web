@@ -2,10 +2,113 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../../../../context/AuthContext';
+import {
+    fetchWishlistApi,
+    toggleWishlistApi,
+} from '../../../api/wishlistApi';
 
 export default function RecentlyViewed() {
     const [recentProducts, setRecentProducts] = useState([]);
     const [isMounted, setIsMounted] = useState(false);
+
+
+    const router = useRouter();
+    const { isLoggedIn, loading: authLoading } = useAuth();
+
+    const [wishlistedIds, setWishlistedIds] = useState([]);
+    const [busyIds, setBusyIds] = useState([]);
+    const [wishlistError, setWishlistError] = useState('');
+
+    useEffect(() => {
+        if (authLoading || !isLoggedIn) {
+            setWishlistedIds([]);
+            return;
+        }
+
+        let active = true;
+
+        fetchWishlistApi()
+            .then(response => {
+                if (active && response.success) {
+                    setWishlistedIds(
+                        (response.products || []).map(product =>
+                            String(product._id)
+                        )
+                    );
+                }
+            })
+            .catch(error => {
+                console.error('Wishlist fetch failed:', error);
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [isLoggedIn, authLoading]);
+
+    const handleWishlist = async productId => {
+        const id = String(productId);
+
+        if (busyIds.includes(id) || authLoading) return;
+
+        if (!isLoggedIn) {
+            router.push('/login');
+            return;
+        }
+
+        const wasWishlisted = wishlistedIds.includes(id);
+
+        // Instant heart update
+        setWishlistedIds(previous =>
+            wasWishlisted
+                ? previous.filter(item => item !== id)
+                : [...previous, id]
+        );
+
+        setBusyIds(previous => [...previous, id]);
+        setWishlistError('');
+
+        try {
+            const response = await toggleWishlistApi(productId);
+
+            if (!response.success) {
+                throw new Error(
+                    response.error || 'Unable to update wishlist.'
+                );
+            }
+
+            setWishlistedIds(previous =>
+                response.isWishlisted
+                    ? [...new Set([...previous, id])]
+                    : previous.filter(item => item !== id)
+            );
+
+        } catch (error) {
+            // Roll back only this product
+            setWishlistedIds(previous =>
+                wasWishlisted
+                    ? [...new Set([...previous, id])]
+                    : previous.filter(item => item !== id)
+            );
+
+            if (error.status === 401) {
+                router.push('/login');
+                return;
+            }
+
+            setWishlistError(
+                error.message || 'Unable to update wishlist.'
+            );
+        } finally {
+            setBusyIds(previous =>
+                previous.filter(item => item !== id)
+            );
+        }
+    };
+
+
 
     useEffect(() => {
         setIsMounted(true); // Ensures safe client-side execution (prevents hydration mismatch)
@@ -28,6 +131,11 @@ export default function RecentlyViewed() {
 
     return (
         <section className="bg-white py-12 lg:py-20 px-4 sm:px-6 lg:px-20 overflow-hidden mt-16 md:mt-24 lg:mt-[100px]">
+            {wishlistError && (
+                <p role="alert" className="text-center text-sm text-red-500 mb-3">
+                    {wishlistError}
+                </p>
+            )}
             <div className="max-w-7xl mx-auto">
 
                 {/* Header Section */}
@@ -92,27 +200,7 @@ export default function RecentlyViewed() {
                                         </h3>
                                     </Link>
 
-                                    {/* Quick Action Icons next to title */}
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <button aria-label="Wishlist">
-                                            <Image
-                                                src="/icons/Heart.svg"
-                                                alt="Wishlist"
-                                                width={16}
-                                                height={16}
-                                                className="w-3.5 h-3.5 sm:w-4 sm:h-4 hover:opacity-50 transition-opacity"
-                                            />
-                                        </button>
-                                        <button aria-label="Cart">
-                                            <Image
-                                                src="/icons/Cart.svg"
-                                                alt="Add to Cart"
-                                                width={16}
-                                                height={16}
-                                                className="w-3.5 h-3.5 sm:w-4 sm:h-4 hover:opacity-50 transition-opacity"
-                                            />
-                                        </button>
-                                    </div>
+
                                 </div>
 
                                 <p className="text-gray-500 text-[10px] sm:text-xs mb-3 capitalize">
@@ -120,19 +208,56 @@ export default function RecentlyViewed() {
                                 </p>
 
 
-                                <div className="flex flex-wrap items-center gap-2 mt-auto">
-                                    {hasDiscount && (
-                                        <span className="text-gray-400 font-normal line-through text-[10px] sm:text-xs">
-                                            {currency}{comparePrice.toLocaleString('en-IN')}
-                                        </span>
-                                    )}
 
-                                    <span className="text-[#222222] font-bold text-xs sm:text-sm">
-                                        {Number.isFinite(finalPrice) && product.price?.finalPrice != null
-                                            ? `${currency}${finalPrice.toLocaleString('en-IN')}`
-                                            : '—'}
-                                    </span>
+                                {/* Price + Wishlist */}
+                                <div className="flex items-center justify-between gap-2 mt-auto">
+
+                                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                        {hasDiscount && (
+                                            <span className="text-gray-400 font-normal line-through text-[10px] sm:text-xs">
+                                                {currency}{comparePrice.toLocaleString('en-IN')}
+                                            </span>
+                                        )}
+
+                                        <span className="text-[#222222] font-bold text-xs sm:text-sm">
+                                            {Number.isFinite(finalPrice) && product.price?.finalPrice != null
+                                                ? `${currency}${finalPrice.toLocaleString('en-IN')}`
+                                                : '—'}
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => handleWishlist(product._id)}
+                                        disabled={busyIds.includes(String(product._id)) || authLoading}
+                                        aria-label={
+                                            wishlistedIds.includes(String(product._id))
+                                                ? 'Remove from Wishlist'
+                                                : 'Add to Wishlist'
+                                        }
+                                        aria-pressed={wishlistedIds.includes(String(product._id))}
+                                        className="shrink-0 text-[#BF8F5F] hover:text-[#222222] transition-colors"
+                                    >
+                                        <svg
+                                            width="18"
+                                            height="18"
+                                            viewBox="0 0 24 24"
+                                            fill={
+                                                wishlistedIds.includes(String(product._id))
+                                                    ? 'currentColor'
+                                                    : 'none'
+                                            }
+                                            stroke="currentColor"
+                                            strokeWidth="1.5"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="transition-all duration-200"
+                                        >
+                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                                        </svg>
+                                    </button>
                                 </div>
+
 
 
                             </div>

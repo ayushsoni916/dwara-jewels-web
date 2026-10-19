@@ -11,9 +11,9 @@ const formatPrice = value =>
     value == null || !Number.isFinite(Number(value))
         ? '—'
         : `Rs. ${Number(value).toLocaleString('en-IN', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-          })}`;
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        })}`;
 
 const formatDate = value => {
     if (!value) return '—';
@@ -23,12 +23,12 @@ const formatDate = value => {
     return Number.isNaN(date.getTime())
         ? '—'
         : date.toLocaleString('en-IN', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-          });
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
 };
 
 export default function OrderDetailsPage() {
@@ -274,7 +274,47 @@ export default function OrderDetailsPage() {
                                             </p>
                                         )}
                                     </div>
+
                                 </div>
+
+                                {/* Cancel / Return / Exchange Support */}
+                                <div className="border border-[#BF8F5F]/30 bg-[#FCF6F2] p-5 sm:p-6 rounded-sm">
+                                    <h2 className="font-serif text-xl text-[#222222] mb-2">
+                                        Need Help With Your Order?
+                                    </h2>
+
+                                    <p className="text-xs text-gray-600 mb-5 leading-relaxed">
+                                        For cancellations, returns or exchanges, contact our support
+                                        team. Return and exchange requests should be made within
+                                        3 days of delivery. Report damaged or incorrect items
+                                        within 24 hours of delivery.
+                                    </p>
+
+                                    <div className="flex flex-wrap gap-3">
+                                        {[
+                                            { label: 'Cancel Order', type: 'Cancellation' },
+                                            { label: 'Return Order', type: 'Return' },
+                                            { label: 'Exchange Order', type: 'Exchange' },
+                                        ].map(action => (
+                                            <a
+                                                key={action.type}
+                                                href={`mailto:dwarajewels.official@gmail.com?subject=${encodeURIComponent(
+                                                    `${action.type} Request - Order #${order._id}`
+                                                )}&body=${encodeURIComponent(
+                                                    `Hello Dwara Jewels Team,\n\nI would like to request a ${action.type.toLowerCase()} for my order.\n\nOrder ID: ${order._id}\n\nReason: \n\nThank you.`
+                                                )}`}
+                                                className="border border-[#BF8F5F] px-4 py-2.5 text-xs font-bold text-[#BF8F5F] hover:bg-[#BF8F5F] hover:text-white transition-colors"
+                                            >
+                                                {action.label}
+                                            </a>
+                                        ))}
+                                    </div>
+
+                                    <p className="mt-4 text-[11px] text-gray-500">
+                                        Our team will review your request and assist you.
+                                    </p>
+                                </div>
+
                             </div>
                         )}
                     </div>

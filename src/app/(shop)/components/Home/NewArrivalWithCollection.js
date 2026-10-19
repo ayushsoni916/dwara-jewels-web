@@ -5,6 +5,12 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { fetchProductApi } from '../../../api/productApi';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../../../../context/AuthContext';
+import {
+    fetchWishlistApi,
+    toggleWishlistApi,
+} from '../../../api/wishlistApi';
 
 const ENGAGEMENT_COLLECTION_ID = '6acd0c40b2210243220ab67d';
 
@@ -13,6 +19,95 @@ const COLLECTION_LINK =
 
 export default function NewArrivalWithCollection() {
     const [products, setProducts] = useState([]);
+
+
+    const router = useRouter();
+    const { isLoggedIn, loading: authLoading } = useAuth();
+
+    const [wishlistedIds, setWishlistedIds] = useState([]);
+    const [busyProductId, setBusyProductId] = useState(null);
+    const [wishlistError, setWishlistError] = useState('');
+
+    useEffect(() => {
+        if (authLoading || !isLoggedIn) {
+            setWishlistedIds([]);
+            return;
+        }
+
+        let active = true;
+
+        fetchWishlistApi()
+            .then(res => {
+                if (active && res.success) {
+                    setWishlistedIds(
+                        (res.products || []).map(product => String(product._id))
+                    );
+                }
+            })
+            .catch(err => {
+                console.error('Wishlist load failed:', err);
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [isLoggedIn, authLoading]);
+
+    const handleWishlist = async productId => {
+        if (busyProductId === String(productId) || authLoading) return;
+
+        if (!isLoggedIn) {
+            router.push('/login');
+            return;
+        }
+
+        const id = String(productId);
+        const wasWishlisted = wishlistedIds.includes(id);
+
+        // Instant UI update
+        setWishlistedIds(previous =>
+            wasWishlisted
+                ? previous.filter(item => item !== id)
+                : [...previous, id]
+        );
+
+        setBusyProductId(id);
+        setWishlistError('');
+
+        try {
+            const res = await toggleWishlistApi(productId);
+
+            if (!res.success) {
+                throw new Error(res.error || 'Unable to update wishlist');
+            }
+
+            // Synchronize with backend
+            setWishlistedIds(previous =>
+                res.isWishlisted
+                    ? [...new Set([...previous, id])]
+                    : previous.filter(item => item !== id)
+            );
+        } catch (error) {
+            // Roll back if API fails
+            setWishlistedIds(previous =>
+                wasWishlisted
+                    ? [...new Set([...previous, id])]
+                    : previous.filter(item => item !== id)
+            );
+
+            if (error.status === 401) {
+                router.push('/login');
+                return;
+            }
+
+            setWishlistError(
+                error.message || 'Unable to update wishlist.'
+            );
+        } finally {
+            setBusyProductId(null);
+        }
+    };
+
 
     useEffect(() => {
         let active = true;
@@ -48,6 +143,12 @@ export default function NewArrivalWithCollection() {
 
     return (
         <section className="horizontal-padding mt-16 md:mt-24 lg:mt-50.5 flex flex-col lg:grid lg:grid-cols-[3fr_1fr] gap-6">
+
+            {wishlistError && (
+                <p role="alert" className="text-center text-sm text-red-500 mb-3">
+                    {wishlistError}
+                </p>
+            )}
 
             {/* Left Side: Engagement Products */}
             <div className="w-full min-w-0">
@@ -127,34 +228,9 @@ export default function NewArrivalWithCollection() {
                                     </Link>
 
                                     {/* Quick Action Icons */}
-                                    <div className="absolute bottom-4 left-0 right-0 hidden lg:flex justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
 
-                                        <button
-                                            type="button"
-                                            aria-label="Add to Wishlist"
-                                            className="bg-white p-2.5 shadow-sm hover:bg-[#BF8F5F] transition-colors rounded-none pointer-events-auto"
-                                        >
-                                            <Image
-                                                src="/icons/Heart.svg"
-                                                alt=""
-                                                width={18}
-                                                height={18}
-                                            />
-                                        </button>
 
-                                        <button
-                                            type="button"
-                                            aria-label="Add to Cart"
-                                            className="bg-white p-2.5 shadow-sm hover:bg-[#BF8F5F] transition-colors rounded-none pointer-events-auto"
-                                        >
-                                            <Image
-                                                src="/icons/Cart.svg"
-                                                alt=""
-                                                width={18}
-                                                height={18}
-                                            />
-                                        </button>
-                                    </div>
+
                                 </div>
 
                                 {/* Product Title */}
@@ -176,23 +252,56 @@ export default function NewArrivalWithCollection() {
                                     </p>
                                 )}
 
-                                {/* Price */}
-                                <div className="flex flex-wrap items-center gap-2 mt-auto">
 
-                                    {hasDiscount && (
-                                        <span className="text-gray-400 line-through text-[10px] sm:text-xs">
-                                            {currency}
-                                            {comparePrice.toLocaleString('en-IN')}
+                                {/* Price + Wishlist */}
+                                <div className="flex items-center justify-between gap-2 mt-auto">
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {hasDiscount && (
+                                            <span className="text-gray-400 line-through text-[10px] sm:text-xs">
+                                                {currency}{comparePrice.toLocaleString('en-IN')}
+                                            </span>
+                                        )}
+
+                                        <span className="text-[#BF8F5F] font-bold text-xs sm:text-sm">
+                                            {product.price?.finalPrice != null && Number.isFinite(finalPrice)
+                                                ? `${currency}${finalPrice.toLocaleString('en-IN')}`
+                                                : '—'}
                                         </span>
-                                    )}
+                                    </div>
 
-                                    <span className="text-[#BF8F5F] font-bold text-xs sm:text-sm">
-                                        {product.price?.finalPrice != null &&
-                                        Number.isFinite(finalPrice)
-                                            ? `${currency}${finalPrice.toLocaleString('en-IN')}`
-                                            : '—'}
-                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleWishlist(product._id)}
+                                        disabled={busyProductId === String(product._id) || authLoading}
+                                        aria-label={
+                                            wishlistedIds.includes(String(product._id))
+                                                ? 'Remove from Wishlist'
+                                                : 'Add to Wishlist'
+                                        }
+                                        aria-pressed={wishlistedIds.includes(String(product._id))}
+                                        className="shrink-0 text-[#BF8F5F] hover:text-[#222222] transition-colors"
+                                    >
+                                        <svg
+                                            width="18"
+                                            height="18"
+                                            viewBox="0 0 24 24"
+                                            fill={
+                                                wishlistedIds.includes(String(product._id))
+                                                    ? 'currentColor'
+                                                    : 'none'
+                                            }
+                                            stroke="currentColor"
+                                            strokeWidth="1.5"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="transition-all duration-200"
+                                        >
+                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                                        </svg>
+                                    </button>
                                 </div>
+
                             </div>
                         );
                     })}

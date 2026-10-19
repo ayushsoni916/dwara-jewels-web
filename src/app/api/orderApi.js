@@ -34,3 +34,21 @@ export const getOrderDetailsApi = async orderId => {
 
     return { success: true, order };
 };
+
+export const createOrderApi = async (shippingAddress, requestId) => {
+    const res = await apiClient.post('/orders/create', {
+        shippingAddress,
+        paymentType: 'Online',
+        requestId,
+    });
+
+    return res.data;
+};
+
+export const getCheckoutStatusApi = async (checkoutId) => {
+    const res = await apiClient.get(
+        `/orders/checkout/${encodeURIComponent(checkoutId)}/status`
+    );
+
+    return res.data;
+};

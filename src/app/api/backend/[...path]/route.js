@@ -197,6 +197,16 @@ const routes = [
         pattern: /^admin\/orders\/[a-f\d]{24}\/shipping\/cancel$/i,
         requiresAuth: true
     },
+    {
+        method: 'POST',
+        pattern: /^orders\/create$/,
+        requiresAuth: true,
+    },
+    {
+        method: 'GET',
+        pattern: /^orders\/checkout\/[a-f\d]{24}\/status$/i,
+        requiresAuth: true,
+    },
 
 
 ];

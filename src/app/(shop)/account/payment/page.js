@@ -6,11 +6,33 @@ import { useRouter } from 'next/navigation';
 
 import { getCart } from '../../../api/cartApi';
 import { getAddresses } from '../../../api/addressApi';
-import { placeOrderApi } from '../../../api/orderApi';
+import { createOrderApi, getCheckoutStatusApi } from '../../../api/orderApi';
+
+
+const loadRazorpay = () => {
+    if (window.Razorpay) return Promise.resolve(true);
+
+    return new Promise(resolve => {
+        const script = document.createElement('script');
+
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => resolve(!!window.Razorpay);
+        script.onerror = () => resolve(false);
+
+        document.body.appendChild(script);
+    });
+};
+
+const sleep = ms =>
+    new Promise(resolve => setTimeout(resolve, ms));
+
 
 export default function CheckoutPayment() {
     const router = useRouter();
     const submittingRef = useRef(false);
+
+    const requestIdRef = useRef(null);
+    const checkoutIdRef = useRef(null);
 
     const [selectedPayment, setSelectedPayment] = useState('Online');
     const [savedAddress, setSavedAddress] = useState(null);
@@ -110,55 +132,226 @@ export default function CheckoutPayment() {
         Boolean(savedAddress?._id) &&
         Boolean(cartData?.items?.length);
 
+
     const handlePlaceOrder = async () => {
-        if (submittingRef.current || !canPlaceOrder) return;
+        if (
+            submittingRef.current ||
+            !savedAddress ||
+            !cartData?.items?.length ||
+            selectedPayment !== 'Online'
+        ) return;
 
         submittingRef.current = true;
         setPlacingOrder(true);
         setError('');
 
-        let orderCreated = false;
+        let checkoutOpened = false;
+
+        const unlock = () => {
+            submittingRef.current = false;
+            setPlacingOrder(false);
+        };
+
+        const confirmCheckout = async (checkoutId, attempts = 12) => {
+            try {
+                const result = await checkOrderStatus(checkoutId, attempts);
+
+                if (result.status === 'OrderPlaced') {
+                    router.replace(
+                        `/account/success?orderId=${encodeURIComponent(
+                            result.orderId
+                        )}`
+                    );
+                    return;
+                }
+
+                if (result.status === 'PaidNeedsReview') {
+                    setError(
+                        'Payment received, but your order needs review. ' +
+                        'Please do not pay again. Contact support.'
+                    );
+                } else if (result.status === 'CreationNeedsReview') {
+                    setError(
+                        'Your checkout requires review. ' +
+                        'Please contact support before trying again.'
+                    );
+                } else {
+                    setError(
+                        'Order confirmation is pending. Please check ' +
+                        'My Orders before attempting another payment.'
+                    );
+                }
+            } catch (err) {
+                setError(
+                    'Unable to verify payment status. Please check ' +
+                    'My Orders before trying again.'
+                );
+            } finally {
+                // Keep the checkout locked to prevent duplicate payments.
+                setPlacingOrder(false);
+            }
+        };
 
         try {
-            const response = await placeOrderApi(
-                savedAddress,
-                selectedPayment
-            );
+            const loaded = await loadRazorpay();
 
-            if (!response.success || !response.order?._id) {
-                throw new Error(
-                    response.error ||
-                    response.message ||
-                    'Unable to place your order.'
-                );
+            if (!loaded) {
+                throw new Error('Unable to load Razorpay. Please retry.');
             }
 
-            orderCreated = true;
+            if (!requestIdRef.current) {
+                requestIdRef.current = crypto.randomUUID();
+            }
 
-            router.replace(
-                `/account/success?orderId=${encodeURIComponent(
-                    response.order._id
-                )}`
+            const checkout = await createOrderApi(
+                savedAddress,
+                requestIdRef.current
             );
-        } catch (err) {
-            if (err.status === 401) {
-                window.location.replace('/login');
+
+            if (checkout.checkoutId) {
+                checkoutIdRef.current = checkout.checkoutId;
+            }
+
+            if (
+                checkout.status === 'OrderPlaced' &&
+                checkout.orderId
+            ) {
+                router.replace(
+                    `/account/success?orderId=${encodeURIComponent(
+                        checkout.orderId
+                    )}`
+                );
                 return;
             }
 
+            if (
+                ['Creating', 'CreationNeedsReview', 'PaidNeedsReview']
+                    .includes(checkout.status)
+            ) {
+                setError(
+                    'Your checkout is pending review. ' +
+                    'Please check My Orders before paying again.'
+                );
+                setPlacingOrder(false);
+                return;
+            }
+
+            if (
+                checkout.status !== 'AwaitingPayment' ||
+                !checkout.checkoutId ||
+                !checkout.razorpay?.orderId ||
+                !checkout.razorpay?.keyId ||
+                !Number.isSafeInteger(checkout.razorpay.amount) ||
+                checkout.razorpay.amount < 100
+            ) {
+                throw new Error('Invalid payment checkout response.');
+            }
+
+            let callbackHandled = false;
+
+            const razorpay = new window.Razorpay({
+                key: checkout.razorpay.keyId,
+                amount: checkout.razorpay.amount,
+                currency: checkout.razorpay.currency || 'INR',
+                order_id: checkout.razorpay.orderId,
+
+                name: 'Dwara Jewels',
+                description: 'Jewellery Purchase',
+
+                prefill: {
+                    name: [
+                        savedAddress.firstName,
+                        savedAddress.lastName,
+                    ].filter(Boolean).join(' '),
+                    email: savedAddress.email || '',
+                    contact: String(savedAddress.phone || ''),
+                },
+
+                theme: {
+                    color: '#BF8F5F',
+                },
+
+                handler: async () => {
+                    if (callbackHandled) return;
+                    callbackHandled = true;
+
+                    // Razorpay SDK success isn't final order confirmation.
+                    await confirmCheckout(checkout.checkoutId, 12);
+                },
+
+                modal: {
+                    ondismiss: async () => {
+                        if (callbackHandled) return;
+                        callbackHandled = true;
+
+                        // Payment may still be captured when checkout closes.
+                        await confirmCheckout(checkout.checkoutId, 3);
+                    },
+                },
+            });
+
+            checkoutOpened = true;
+            razorpay.open();
+
+        } catch (err) {
             setError(
                 err.data?.error ||
+                err.response?.data?.error ||
                 err.message ||
-                'Unable to place your order.'
+                'Unable to start payment.'
             );
         } finally {
-            // Keep the button locked after success while navigating.
-            if (!orderCreated) {
-                submittingRef.current = false;
-                setPlacingOrder(false);
+            if (!checkoutOpened) {
+                // Keep potentially-created checkouts locked until checked.
+                if (checkoutIdRef.current) {
+                    setPlacingOrder(false);
+                } else {
+                    unlock();
+                }
             }
         }
     };
+
+
+
+    const checkOrderStatus = async (checkoutId, attempts = 12) => {
+        for (let attempt = 0; attempt < attempts; attempt++) {
+            try {
+                const result = await getCheckoutStatusApi(checkoutId);
+
+                if (
+                    result.status === 'OrderPlaced' &&
+                    result.orderPlaced &&
+                    result.orderId
+                ) {
+                    return {
+                        status: 'OrderPlaced',
+                        orderId: result.orderId,
+                    };
+                }
+
+                if (
+                    result.status === 'PaidNeedsReview' ||
+                    result.status === 'CreationNeedsReview'
+                ) {
+                    return { status: result.status };
+                }
+            } catch (err) {
+                if ([401, 403, 404].includes(
+                    err.status ?? err.response?.status
+                )) {
+                    throw err;
+                }
+            }
+
+            if (attempt < attempts - 1) {
+                await sleep(2000);
+            }
+        }
+
+        return { status: 'PendingConfirmation' };
+    };
+
 
 
     return (
@@ -219,7 +412,7 @@ export default function CheckoutPayment() {
                             </div>
 
                             {/* Cash On Delivery Option Card */}
-                            <div
+                            {/* <div
                                 onClick={() => {
                                     if (!submittingRef.current) setSelectedPayment('COD');
                                 }}
@@ -237,7 +430,7 @@ export default function CheckoutPayment() {
                                     <h3 className="font-bold text-sm text-[#222222] mb-1">Cash On Delivery</h3>
                                     <p className="text-xs text-gray-500 leading-relaxed">An Applicable Fees will be charged</p>
                                 </div>
-                            </div>
+                            </div> */}
 
                         </div>
                     </div>
@@ -390,7 +583,7 @@ export default function CheckoutPayment() {
                                     ? 'Loading…'
                                     : placingOrder
                                         ? 'Placing Order…'
-                                        : 'Place Order'}
+                                        : 'Place Securely'}
                             </button>
                         </div>
                     </div>

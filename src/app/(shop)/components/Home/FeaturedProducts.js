@@ -4,6 +4,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { fetchNewArrivalApi } from '../../../api/productApi';
+import { useAuth } from '../../../../../context/AuthContext';
+import { useRouter } from 'next/navigation';
+import {
+    fetchWishlistApi,
+    toggleWishlistApi,
+} from '../../../api/wishlistApi';
+import { addToCartApi } from '../../../api/cartApi';
+
 
 
 const getDiscountPercentage = (product) => {
@@ -18,6 +26,133 @@ const getDiscountPercentage = (product) => {
 export default function FeaturedProducts() {
     const [products, setProducts] = useState([]);
     const sliderRef = useRef(null);
+
+
+    const router = useRouter();
+    const { isLoggedIn, loading: authLoading } = useAuth();
+
+    const [wishlistedIds, setWishlistedIds] = useState([]);
+    const [busyProductId, setBusyProductId] = useState(null);
+    const [actionMessage, setActionMessage] = useState('');
+
+    useEffect(() => {
+        if (authLoading || !isLoggedIn) {
+            setWishlistedIds([]);
+            return;
+        }
+
+        let active = true;
+
+        fetchWishlistApi()
+            .then(res => {
+                if (active && res.success) {
+                    setWishlistedIds(
+                        (res.products || []).map(product => String(product._id))
+                    );
+                }
+            })
+            .catch(err => console.error('Wishlist load failed:', err));
+
+        return () => {
+            active = false;
+        };
+    }, [isLoggedIn, authLoading]);
+
+    const requireLogin = () => {
+        if (authLoading) return false;
+
+        if (!isLoggedIn) {
+            router.push('/login');
+            return false;
+        }
+
+        return true;
+    };
+
+
+    const handleWishlist = async productId => {
+        if (busyProductId || !requireLogin()) return;
+
+        const id = String(productId);
+        const wasWishlisted = wishlistedIds.includes(id);
+
+        // Immediately update heart
+        setWishlistedIds(previous =>
+            wasWishlisted
+                ? previous.filter(item => item !== id)
+                : [...previous, id]
+        );
+
+        setBusyProductId(productId);
+        setActionMessage('');
+
+        try {
+            const res = await toggleWishlistApi(productId);
+
+            if (!res.success) {
+                throw new Error(res.error || 'Unable to update wishlist');
+            }
+
+            // Sync with actual backend response
+            setWishlistedIds(previous =>
+                res.isWishlisted
+                    ? [...new Set([...previous, id])]
+                    : previous.filter(item => item !== id)
+            );
+
+        } catch (error) {
+            // Revert heart when API fails
+            setWishlistedIds(previous =>
+                wasWishlisted
+                    ? [...new Set([...previous, id])]
+                    : previous.filter(item => item !== id)
+            );
+
+            if (error.status === 401) {
+                router.push('/login');
+                return;
+            }
+
+            setActionMessage(
+                error.message || 'Unable to update wishlist.'
+            );
+        } finally {
+            setBusyProductId(null);
+        }
+    };
+
+
+    const handleCart = async product => {
+        if (busyProductId || !requireLogin()) return;
+
+        const available = (product.dimensions || []).filter(
+            option => Number(option.stock) > 0
+        );
+
+        // Customer must choose a size when multiple are available.
+        if (available.length !== 1) {
+            router.push(`/product/${product._id}`);
+            return;
+        }
+
+        setBusyProductId(product._id);
+        setActionMessage('');
+
+        try {
+            await addToCartApi(product._id, 1, available[0]._id);
+            setActionMessage('Added to cart successfully!');
+        } catch (error) {
+            if (error.status === 401) {
+                router.push('/login');
+                return;
+            }
+
+            setActionMessage(error.message || 'Unable to add to cart.');
+        } finally {
+            setBusyProductId(null);
+        }
+    };
+
 
     useEffect(() => {
         let active = true;
@@ -58,52 +193,57 @@ export default function FeaturedProducts() {
 
     if (!products.length) return null;
 
-    
-return (
-    <section className="bg-[#F9F1E7] py-5 lg:py-20 px-0 lg:px-20 overflow-hidden mt-6 lg:mt-[100px]">
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-2 lg:gap-12">
 
-            {/* Heading Section */}
-            <div className="lg:w-1/4 flex flex-col justify-center px-[21px] lg:px-0">
+    return (
+        <section className="bg-[#F9F1E7] py-5 lg:py-20 px-0 lg:px-20 overflow-hidden mt-6 lg:mt-[100px]">
+            {actionMessage && (
+                <p role="status" className="text-center text-sm text-[#BF8F5F] mb-3 px-4">
+                    {actionMessage}
+                </p>
+            )}
+            <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-2 lg:gap-12">
 
-                <span className="text-[#BF8F5F] font-sans text-[10px] lg:text-xs uppercase tracking-[0.3em] mb-1 lg:mb-4">
-                    NEW ARRIVALS
-                </span>
+                {/* Heading Section */}
+                <div className="lg:w-1/4 flex flex-col justify-center px-[21px] lg:px-0">
 
-                <div className="flex items-center justify-between lg:block gap-3">
-                    <h2 className="text-[#222222] font-serif text-[16px] lg:text-5xl leading-tight lg:mb-6">
-                        Beauty At Its Finest
-                    </h2>
+                    <span className="text-[#BF8F5F] font-sans text-[10px] lg:text-xs uppercase tracking-[0.3em] mb-1 lg:mb-4">
+                        NEW ARRIVALS
+                    </span>
 
-                    {/* Mobile Explore More */}
+                    <div className="flex items-center justify-between lg:block gap-3">
+                        <h2 className="text-[#222222] font-serif text-[16px] lg:text-5xl leading-tight lg:mb-6">
+                            Beauty At Its Finest
+                        </h2>
+
+                        {/* Mobile Explore More */}
+                        <Link
+                            href="/category?isNewArrival=true&isLuxe=false"
+                            className="lg:hidden shrink-0 text-[#BF8F5F] text-[12px] font-medium"
+                        >
+                            Explore More
+                        </Link>
+                    </div>
+
+                    {/* Desktop Description */}
+                    <p className="hidden lg:block text-gray-600 text-sm mb-8 leading-relaxed">
+                        Discover the latest additions to Dwara Jewels.
+                        Timeless elegance, exquisite craftsmanship, and
+                        beautiful designs made for every occasion.
+                    </p>
+
+                    {/* Desktop Explore More */}
                     <Link
                         href="/category?isNewArrival=true&isLuxe=false"
-                        className="lg:hidden shrink-0 text-[#BF8F5F] text-[12px] font-medium"
+                        className="hidden lg:inline-block text-[#BF8F5F] font-bold border-b border-[#BF8F5F] pb-1 uppercase text-xs tracking-widest w-fit hover:text-black hover:border-black transition-colors"
                     >
-                        Explore More
+                        Explore More →
                     </Link>
                 </div>
 
-                {/* Desktop Description */}
-                <p className="hidden lg:block text-gray-600 text-sm mb-8 leading-relaxed">
-                    Discover the latest additions to Dwara Jewels.
-                    Timeless elegance, exquisite craftsmanship, and
-                    beautiful designs made for every occasion.
-                </p>
-
-                {/* Desktop Explore More */}
-                <Link
-                    href="/category?isNewArrival=true&isLuxe=false"
-                    className="hidden lg:inline-block text-[#BF8F5F] font-bold border-b border-[#BF8F5F] pb-1 uppercase text-xs tracking-widest w-fit hover:text-black hover:border-black transition-colors"
-                >
-                    Explore More →
-                </Link>
-            </div>
-
-            {/* Product Slider */}
-            <div
-                ref={sliderRef}
-                className="
+                {/* Product Slider */}
+                <div
+                    ref={sliderRef}
+                    className="
                     w-full lg:w-3/4 min-w-0
                     mt-5 lg:mt-0
                     flex lg:grid lg:grid-flow-col
@@ -115,215 +255,237 @@ return (
                     [scrollbar-width:none]
                     [&::-webkit-scrollbar]:hidden
                 "
-            >
-                {products.map((product) => {
-                    const discount = getDiscountPercentage(product);
+                >
+                    {products.map((product) => {
+                        const discount = getDiscountPercentage(product);
 
-                    const finalPrice = Number(
-                        product.price?.finalPrice
-                    );
+                        const finalPrice = Number(
+                            product.price?.finalPrice
+                        );
 
-                    const comparePrice = Number(
-                        product.price?.compareAtPrice
-                    );
+                        const comparePrice = Number(
+                            product.price?.compareAtPrice
+                        );
 
-                    const currency =
-                        product.price?.currency === 'USD'
-                            ? '$'
-                            : 'Rs. ';
+                        const currency =
+                            product.price?.currency === 'USD'
+                                ? '$'
+                                : 'Rs. ';
 
-                    const outOfStock = Array.isArray(product.dimensions)
-                        ? !product.dimensions.some(
-                              option => Number(option.stock) > 0
-                          )
-                        : product.totalStock != null &&
-                          Number(product.totalStock) <= 0;
+                        const outOfStock = Array.isArray(product.dimensions)
+                            ? !product.dimensions.some(
+                                option => Number(option.stock) > 0
+                            )
+                            : product.totalStock != null &&
+                            Number(product.totalStock) <= 0;
 
-                    return (
-                        <div
-                            key={product._id}
-                            className="group relative flex flex-col h-full shrink-0 w-[150px] lg:w-auto"
-                        >
-                            {/* Product Image */}
-                            <div className="relative w-full aspect-square bg-[#FCF6F2] lg:bg-white mb-[10px] lg:mb-6 overflow-hidden rounded-none flex items-center justify-center">
+                        return (
+                            <div
+                                key={product._id}
+                                className="group relative flex flex-col h-full shrink-0 w-[150px] lg:w-auto"
+                            >
+                                {/* Product Image */}
+                                <div className="relative w-full aspect-square bg-[#FCF6F2] lg:bg-white mb-[10px] lg:mb-6 overflow-hidden rounded-none flex items-center justify-center">
 
-                                {/* Discount / New Badge */}
-                                {discount > 0 ? (
-                                    <span className="absolute top-2 left-2 lg:top-4 lg:left-4 bg-[#C19875] text-white text-[9px] lg:text-[10px] px-2 py-1 z-10 tracking-wider pointer-events-none">
-                                        - {discount}%
-                                    </span>
-                                ) : product.isNewArrival && (
-                                    <span className="absolute top-2 left-2 lg:top-4 lg:left-4 bg-[#C19875] text-white text-[9px] lg:text-[10px] px-2 py-1 z-10 tracking-wider pointer-events-none">
-                                        NEW
-                                    </span>
-                                )}
-
-                                <Link
-                                    href={`/product/${product._id}`}
-                                    className="w-full h-full relative block"
-                                >
-                                    <Image
-                                        src={
-                                            product.thumbnail ||
-                                            product.images?.[0] ||
-                                            '/placeholder.webp'
-                                        }
-                                        alt={product.title || 'Dwara Jewels Product'}
-                                        fill
-                                        sizes="(max-width: 1023px) 150px, 25vw"
-                                        className="object-cover p-0 transition-transform duration-500 group-hover:scale-105"
-                                    />
-                                </Link>
-
-                                {/* Out of Stock Badge */}
-                                {outOfStock && (
-                                    <div className="absolute bottom-0 left-0 right-0 bg-[#222222]/75 py-1.5 text-center pointer-events-none">
-                                        <span className="text-white text-[9px] lg:text-[10px] tracking-wider">
-                                            OUT OF STOCK
+                                    {/* Discount / New Badge */}
+                                    {discount > 0 ? (
+                                        <span className="absolute top-2 left-2 lg:top-4 lg:left-4 bg-[#C19875] text-white text-[9px] lg:text-[10px] px-2 py-1 z-10 tracking-wider pointer-events-none">
+                                            - {discount}%
                                         </span>
-                                    </div>
-                                )}
-                            </div>
+                                    ) : product.isNewArrival && (
+                                        <span className="absolute top-2 left-2 lg:top-4 lg:left-4 bg-[#C19875] text-white text-[9px] lg:text-[10px] px-2 py-1 z-10 tracking-wider pointer-events-none">
+                                            NEW
+                                        </span>
+                                    )}
 
-                            {/* Product Details */}
-                            <div className="flex flex-col flex-grow min-w-0">
+                                    <Link
+                                        href={`/product/${product._id}`}
+                                        className="w-full h-full relative block"
+                                    >
+                                        <Image
+                                            src={
+                                                product.thumbnail ||
+                                                product.images?.[0] ||
+                                                '/placeholder.webp'
+                                            }
+                                            alt={product.title || 'Dwara Jewels Product'}
+                                            fill
+                                            sizes="(max-width: 1023px) 150px, 25vw"
+                                            className="object-cover p-0 transition-transform duration-500 group-hover:scale-105"
+                                        />
+                                    </Link>
 
-                                <Link
-                                    href={`/product/${product._id}`}
-                                    className="hover:text-[#C19875] transition-colors inline-block w-fit"
-                                >
-                                    <h3 className="text-[#222222] font-medium lg:font-bold text-[10px] lg:text-sm leading-[12px] lg:leading-snug mb-[5px] lg:mb-4 line-clamp-2">
-                                        {product.title}
-
-                                        {/* Desktop Metal Details */}
-                                        {product.metal?.type && (
-                                            <span className="hidden lg:block font-normal text-gray-500 text-xs mt-1">
-                                                in {product.metal?.quality}{' '}
-                                                {product.metal?.color}{' '}
-                                                {product.metal?.type}
+                                    {/* Out of Stock Badge */}
+                                    {outOfStock && (
+                                        <div className="absolute bottom-0 left-0 right-0 bg-[#222222]/75 py-1.5 text-center pointer-events-none">
+                                            <span className="text-white text-[9px] lg:text-[10px] tracking-wider">
+                                                OUT OF STOCK
                                             </span>
-                                        )}
-                                    </h3>
-                                </Link>
+                                        </div>
+                                    )}
+                                </div>
 
-                                {/* Mobile Price + Wishlist Row */}
-                                <div className="flex items-center justify-between gap-2 lg:block">
+                                {/* Product Details */}
+                                <div className="flex flex-col flex-grow min-w-0">
 
-                                    {/* Pricing */}
-                                    <div className="flex flex-wrap items-center gap-1 lg:gap-2 lg:mb-6">
+                                    <Link
+                                        href={`/product/${product._id}`}
+                                        className="hover:text-[#C19875] transition-colors inline-block w-fit"
+                                    >
+                                        <h3 className="text-[#222222] font-medium lg:font-bold text-[10px] lg:text-sm leading-[12px] lg:leading-snug mb-[5px] lg:mb-4 line-clamp-2">
+                                            {product.title}
 
-                                        {Number.isFinite(comparePrice) &&
-                                            Number.isFinite(finalPrice) &&
-                                            comparePrice > finalPrice && (
-                                                <span className="text-gray-400 font-normal line-through text-[9px] lg:text-sm">
-                                                    {currency}
-                                                    {comparePrice.toLocaleString('en-IN')}
+                                            {/* Desktop Metal Details */}
+                                            {product.metal?.type && (
+                                                <span className="hidden lg:block font-normal text-gray-500 text-xs mt-1">
+                                                    in {product.metal?.quality}{' '}
+                                                    {product.metal?.color}{' '}
+                                                    {product.metal?.type}
                                                 </span>
                                             )}
+                                        </h3>
+                                    </Link>
 
-                                        <span className="text-[#222222] font-medium lg:font-bold text-[12px] lg:text-sm">
-                                            {currency}
-                                            {Number.isFinite(finalPrice)
-                                                ? finalPrice.toLocaleString('en-IN')
-                                                : ''}
-                                        </span>
+                                    {/* Mobile Price + Wishlist Row */}
+                                    <div className="flex items-center justify-between gap-2 lg:block">
+
+                                        {/* Pricing */}
+                                        <div className="flex flex-wrap items-center gap-1 lg:gap-2 lg:mb-6">
+
+                                            {Number.isFinite(comparePrice) &&
+                                                Number.isFinite(finalPrice) &&
+                                                comparePrice > finalPrice && (
+                                                    <span className="text-gray-400 font-normal line-through text-[9px] lg:text-sm">
+                                                        {currency}
+                                                        {comparePrice.toLocaleString('en-IN')}
+                                                    </span>
+                                                )}
+
+                                            <span className="text-[#222222] font-medium lg:font-bold text-[12px] lg:text-sm">
+                                                {currency}
+                                                {Number.isFinite(finalPrice)
+                                                    ? finalPrice.toLocaleString('en-IN')
+                                                    : ''}
+                                            </span>
+                                        </div>
+
+                                        {/* Mobile Wishlist */}
+                                        <button
+                                            onClick={() => handleWishlist(product._id)}
+                                            disabled={!!busyProductId || authLoading}
+                                            aria-label={
+                                                wishlistedIds.includes(String(product._id))
+                                                    ? 'Remove from Wishlist'
+                                                    : 'Add to Wishlist'
+                                            }
+                                            type="button"
+                                            className="lg:hidden shrink-0 text-[#C19875] hover:text-[#222222] transition-colors"
+                                        >
+                                            <svg
+                                                className="transition-all duration-200"
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill={
+                                                    wishlistedIds.includes(String(product._id))
+                                                        ? 'currentColor'
+                                                        : 'none'
+                                                }
+                                                stroke="currentColor"
+                                                strokeWidth="1.5"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                                            </svg>
+                                        </button>
                                     </div>
 
-                                    {/* Mobile Wishlist */}
-                                    <button
-                                        type="button"
-                                        className="lg:hidden shrink-0 text-[#C19875] hover:text-[#222222] transition-colors"
-                                        aria-label="Add to Wishlist"
-                                    >
-                                        <svg
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="1.5"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        >
-                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                                        </svg>
-                                    </button>
-                                </div>
+                                    {/* Desktop Quick Actions */}
+                                    <div className="hidden lg:flex items-center gap-4 mt-auto text-[#C19875]">
 
-                                {/* Desktop Quick Actions */}
-                                <div className="hidden lg:flex items-center gap-4 mt-auto text-[#C19875]">
-
-                                    {/* Wishlist */}
-                                    <button
-                                        type="button"
-                                        className="hover:text-[#222222] transition-colors"
-                                        aria-label="Add to Wishlist"
-                                    >
-                                        <svg
-                                            width="18"
-                                            height="18"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="1.5"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
+                                        {/* Wishlist */}
+                                        <button
+                                            type="button"
+                                            className="hover:text-[#222222] transition-colors"
+                                            onClick={() => handleWishlist(product._id)}
+                                            disabled={!!busyProductId || authLoading}
+                                            aria-label={
+                                                wishlistedIds.includes(String(product._id))
+                                                    ? 'Remove from Wishlist'
+                                                    : 'Add to Wishlist'
+                                            }
                                         >
-                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                                        </svg>
-                                    </button>
+                                            <svg
+                                                className="transition-all duration-200"
+                                                width="18"
+                                                height="18"
+                                                viewBox="0 0 24 24"
+                                                fill={
+                                                    wishlistedIds.includes(String(product._id))
+                                                        ? 'currentColor'
+                                                        : 'none'
+                                                }
+                                                stroke="currentColor"
+                                                strokeWidth="1.5"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                                            </svg>
+                                        </button>
 
-                                    {/* Cart */}
-                                    <button
-                                        type="button"
-                                        className="hover:text-[#222222] transition-colors"
-                                        aria-label="Add to Cart"
-                                    >
-                                        <svg
-                                            width="18"
-                                            height="18"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="1.5"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
+                                        {/* Cart */}
+                                        {/* <button
+                                            type="button"
+                                            className="hover:text-[#222222] transition-colors"
+                                            aria-label="Add to Cart"
                                         >
-                                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                                            <line x1="3" y1="6" x2="21" y2="6" />
-                                            <path d="M16 10a4 4 0 0 1-8 0" />
-                                        </svg>
-                                    </button>
+                                            <svg
+                                                width="18"
+                                                height="18"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="1.5"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                                                <line x1="3" y1="6" x2="21" y2="6" />
+                                                <path d="M16 10a4 4 0 0 1-8 0" />
+                                            </svg>
+                                        </button> */}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
-        </div>
 
-        {/* Desktop Slider Navigation */}
-        <div className="hidden lg:flex justify-end gap-4 mt-12 max-w-7xl mx-auto">
+            {/* Desktop Slider Navigation */}
+            <div className="hidden lg:flex justify-end gap-4 mt-12 max-w-7xl mx-auto">
 
-            <button
-                type="button"
-                onClick={() => scrollProducts(-1)}
-                className="w-10 h-10 border border-[#BF8F5F] rounded-full flex items-center justify-center text-[#BF8F5F] hover:bg-[#BF8F5F] hover:text-white transition-all"
-                aria-label="Previous products"
-            >
-                ←
-            </button>
+                <button
+                    type="button"
+                    onClick={() => scrollProducts(-1)}
+                    className="w-10 h-10 border border-[#BF8F5F] rounded-full flex items-center justify-center text-[#BF8F5F] hover:bg-[#BF8F5F] hover:text-white transition-all"
+                    aria-label="Previous products"
+                >
+                    ←
+                </button>
 
-            <button
-                type="button"
-                onClick={() => scrollProducts(1)}
-                className="w-10 h-10 border border-[#BF8F5F] rounded-full flex items-center justify-center text-[#BF8F5F] hover:bg-[#BF8F5F] hover:text-white transition-all"
-                aria-label="Next products"
-            >
-                →
-            </button>
-        </div>
-    </section>
-);
+                <button
+                    type="button"
+                    onClick={() => scrollProducts(1)}
+                    className="w-10 h-10 border border-[#BF8F5F] rounded-full flex items-center justify-center text-[#BF8F5F] hover:bg-[#BF8F5F] hover:text-white transition-all"
+                    aria-label="Next products"
+                >
+                    →
+                </button>
+            </div>
+        </section>
+    );
 
 }
